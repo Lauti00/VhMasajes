@@ -37,8 +37,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        try {
+        String path = request.getServletPath();
 
+        // 🔥 RUTAS QUE NO DEBEN PASAR POR JWT
+        if (
+                path.startsWith("/api/auth") ||
+                path.startsWith("/swagger-ui") ||
+                path.startsWith("/v3/api-docs") ||
+                path.startsWith("/h2-console") ||
+                path.equals("/") ||
+                path.equals("/favicon.ico")
+        ) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        try {
             String jwt = getJwtFromRequest(request);
 
             if (jwt != null && tokenProvider.validateToken(jwt)) {
@@ -54,7 +68,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 userDetails.getAuthorities()
                         );
 
-                // 🔹 ESTA LÍNEA FALTABA
                 authentication.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request)
                 );

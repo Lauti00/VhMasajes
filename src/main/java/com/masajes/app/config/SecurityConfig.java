@@ -4,7 +4,7 @@ import com.masajes.app.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod; // ¡Asegúrate de que este import esté arriba!
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -55,32 +55,33 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
-                // --- RUTAS PÚBLICAS ---
+
+                // 🔓 RUTAS PÚBLICAS
+                .requestMatchers(
+                        "/",
+                        "/favicon.ico",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                        "/v3/api-docs/**",
+                        "/webjars/**",
+                        "/h2-console/**"
+                ).permitAll()
+
                 .requestMatchers("/api/auth/**").permitAll()
-                
-                // 1. Permitimos que cualquiera vea los servicios (GET)
+
                 .requestMatchers(HttpMethod.GET, "/api/servicios/**").permitAll()
-                
-                // 2. Permitimos que cualquiera vea la disponibilidad de turnos sin loguearse
-                // (Debe ir ANTES de la regla general de /api/turnos/**)
+
                 .requestMatchers(HttpMethod.GET, "/api/turnos/disponibilidad/**").permitAll()
-                
-                // Otras rutas públicas
-                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/webjars/**").permitAll()
-                .requestMatchers("/h2-console/**").permitAll()
-                
-                // --- RUTAS PROTEGIDAS ---
+
+                // 🔐 RUTAS PROTEGIDAS
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                
-                // 3. El resto de las operaciones de turnos (crear, cancelar) sí requieren login
+
                 .requestMatchers("/api/turnos/**").authenticated()
-                
-                // 4. Todo lo demás requiere login por defecto
+
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-            
-        // Esto es útil si usas la consola H2 en el navegador (para que no se bloquee por X-Frame-Options)
+
         http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
         
         return http.build();
@@ -89,7 +90,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:3000"));
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "https://vhmasajes.onrender.com" // 👈 importante
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
