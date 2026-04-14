@@ -1,7 +1,7 @@
 import axios from 'axios';
+import API_URL from "../config/api";
 
-const API_URL = 'http://localhost:8083/api/horarios';
-
+fetch(`${API_URL}/api/horarios`)
 const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
     return token ? { Authorization: `Bearer ${token}` } : {};

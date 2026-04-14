@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import API_URL from "../config/api";
 import { useAuth } from "../context/useAuth";
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import format from 'date-fns/format';
@@ -24,9 +25,9 @@ export default function TurnosCliente() {
     // Cargar turnos del backend
     const cargarMisTurnos = () => {
         if (!token) return;
-        fetch("http://localhost:8083/api/turnos/mis-turnos", {
+        fetch(`${API_URL}/api/turnos/mis-turnos`), {
             headers: { "Authorization": `Bearer ${token}` }
-        })
+        }
         .then(res => res.json())
         .then(data => {
             const eventos = data.map(t => ({
