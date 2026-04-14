@@ -26,82 +26,101 @@ import java.util.Arrays;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-    
+
     @Autowired
     private UserDetailsService userDetailsService;
-    
+
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
-    
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-    
+
     @Bean
     public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
-        AuthenticationManagerBuilder authenticationManagerBuilder = 
-            http.getSharedObject(AuthenticationManagerBuilder.class);
+        AuthenticationManagerBuilder authenticationManagerBuilder =
+                http.getSharedObject(AuthenticationManagerBuilder.class);
+
         authenticationManagerBuilder
-            .userDetailsService(userDetailsService)
-            .passwordEncoder(passwordEncoder());
+                .userDetailsService(userDetailsService)
+                .passwordEncoder(passwordEncoder());
+
         return authenticationManagerBuilder.build();
     }
-    
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(authz -> authz
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable())
 
-                // 🔓 RUTAS PÚBLICAS
-                .requestMatchers(
-                        "/",
-                        "/favicon.ico",
-                        "/swagger-ui/**",
-                        "/swagger-ui.html",
-                        "/v3/api-docs/**",
-                        "/webjars/**",
-                        "/h2-console/**"
-                ).permitAll()
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
 
-                .requestMatchers("/api/auth/**").permitAll()
+                .authorizeHttpRequests(auth -> auth
 
-                .requestMatchers(HttpMethod.GET, "/api/servicios/**").permitAll()
+                        // 🔓 PÚBLICO (IMPORTANTE)
+                        .requestMatchers(
+                                "/",
+                                "/favicon.ico",
+                                "/error",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/webjars/**",
+                                "/h2-console/**"
+                        ).permitAll()
 
-                .requestMatchers(HttpMethod.GET, "/api/turnos/disponibilidad/**").permitAll()
+                        // 🔓 AUTH
+                        .requestMatchers("/api/auth/**").permitAll()
 
-                // 🔐 RUTAS PROTEGIDAS
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // 🔓 PUBLICO GET
+                        .requestMatchers(HttpMethod.GET, "/api/servicios/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/turnos/disponibilidad/**").permitAll()
 
-                .requestMatchers("/api/turnos/**").authenticated()
+                        // 🔐 ADMIN
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                        // 🔐 USER
+                        .requestMatchers("/api/turnos/**").authenticated()
 
+                        // 🔐 TODO LO DEMÁS
+                        .anyRequest().authenticated()
+                )
+
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        // Para H2 console
         http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
-        
+
         return http.build();
     }
-    
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:5173",
                 "http://localhost:3000",
-                "https://vhmasajes.onrender.com" // 👈 importante
+                "https://vhmasajes.onrender.com",
+                "https://vh-masajes.vercel.app" // 👈 TU FRONT EN PRODUCCIÓN
         ));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+        configuration.setAllowedMethods(Arrays.asList(
+                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
+        ));
+
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 }
