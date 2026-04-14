@@ -1,0 +1,271 @@
+.turnos-container {
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  min-height: 100vh;
+  background-color: #f9f9f9;
+}
+
+.turnos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.turnos-header h1 {
+  margin: 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.user-info {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.user-info span {
+  color: #666;
+  font-weight: 500;
+}
+
+.btn-logout {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.btn-logout:hover {
+  background-color: #d32f2f;
+}
+
+.turnos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 1200px) {
+  .turnos-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.form-card h2 {
+  margin-top: 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #333;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+.error-message {
+  background-color: #ffebee;
+  color: #d32f2f;
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+  border-left: 4px solid #d32f2f;
+  font-size: 14px;
+}
+
+.success-message {
+  background-color: #e8f5e9;
+  color: #388e3c;
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+  border-left: 4px solid #388e3c;
+  font-size: 14px;
+}
+
+.info-message {
+  background-color: #fff3cd;
+  color: #856404;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 10px;
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #1565c0;
+}
+
+.btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.turnos-list {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.empty-message {
+  color: #999;
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+  margin: 0;
+}
+
+.turno-card {
+  border: 2px solid #1976d2;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background-color: #e3f2fd;
+}
+
+.turno-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.turno-header strong {
+  color: #1976d2;
+}
+
+.status {
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+}
+
+.status.pendiente {
+  background-color: #ff9800;
+}
+
+.status.confirmado {
+  background-color: #4caf50;
+}
+
+.status.cancelado {
+  background-color: #f44336;
+}
+
+.turno-card p {
+  margin: 5px 0;
+  font-size: 13px;
+  color: #555;
+}
+
+.calendar-card {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.rbc-calendar {
+  font-family: Arial, sans-serif;
+}
+
+.rbc-header {
+  padding: 12px 3px;
+  font-weight: bold;
+  font-size: 13px;
+  color: #333;
+  background-color: #f0f0f0;
+}
+
+.rbc-today {
+  background-color: #e3f2fd;
+}
+
+.rbc-event {
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.rbc-toolbar {
+  padding: 10px;
+  background-color: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.rbc-toolbar button {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.2s;
+}
+
+.rbc-toolbar button:hover {
+  background-color: #e0e0e0;
+}
+
+.rbc-toolbar button.rbc-active {
+  background-color: #1976d2;
+  color: white;
+  border-color: #1565c0;
+}
