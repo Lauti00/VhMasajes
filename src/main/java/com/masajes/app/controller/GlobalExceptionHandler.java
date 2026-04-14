@@ -89,11 +89,15 @@ public class GlobalExceptionHandler {
     
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
+
+        // IMPORTANTE: esto muestra el error real en logs
         logger.error("Error no manejado", ex);
+
+        // DEVOLVEMOS EL ERROR REAL (TEMPORALMENTE)
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ErrorResponse.builder()
                 .error("ERROR_INTERNO")
-                .message("Error interno del servidor")
+                .message(ex.getMessage()) // 👈 antes estaba oculto
                 .timestamp(LocalDateTime.now())
                 .build());
     }
