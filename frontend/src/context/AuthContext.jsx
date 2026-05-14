@@ -1,4 +1,5 @@
 import { createContext, useState, useCallback } from "react";
+
 import API_URL from "../config/api";
 
 export const AuthContext = createContext();
@@ -22,7 +23,8 @@ export function AuthProvider({ children }) {
     setError(null);
 
     try {
-      const res = await fetch(`${API_URL}/auth/register`, {
+      //  Ruta completa escrita a mano asegurando que incluye "/api"
+      const res = await fetch("https://vhmasajes.onrender.com/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre, email, password, passwordConfirm, telefono })
@@ -57,7 +59,8 @@ export function AuthProvider({ children }) {
     setError(null);
 
     try {
-      const res = await fetch(`${API_URL}/auth/login`, {
+      //  Ruta completa escrita a mano asegurando que incluye "/api"
+      const res = await fetch("https://vhmasajes.onrender.com/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
