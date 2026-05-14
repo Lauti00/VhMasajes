@@ -1,31 +1,72 @@
 import axios from 'axios';
 import API_URL from "../config/api";
 
-fetch(`${API_URL}/api/horarios`)
+// Endpoint correcto del backend
+const HORARIOS_URL = `${API_URL}/api/horarios`;
+
+// Headers con JWT
 const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
+
+    return token
+        ? {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+        : {
+            'Content-Type': 'application/json'
+        };
 };
 
 export const horarioService = {
-    // Trae la configuración actual de la base de datos
+
+    // Obtener horarios desde backend
     obtenerHorarios: async () => {
         try {
-            const response = await axios.get(API_URL, { headers: getAuthHeaders() });
+
+            console.log("📡 Consultando horarios en:", HORARIOS_URL);
+
+            const response = await axios.get(
+                HORARIOS_URL,
+                {
+                    headers: getAuthHeaders()
+                }
+            );
+
+            console.log("📦 Respuesta horarios:", response.data);
+
             return response.data;
+
         } catch (error) {
-            console.error("Error al obtener horarios", error);
+
+            console.error("❌ Error al obtener horarios:", error);
+
             return [];
         }
     },
 
-    // Envía la nueva configuración para guardarla
+    // Guardar horarios
     guardarHorarios: async (horarios) => {
         try {
-            const response = await axios.post(API_URL, horarios, { headers: getAuthHeaders() });
+
+            console.log("📤 Enviando horarios:", horarios);
+
+            const response = await axios.post(
+                HORARIOS_URL,
+                horarios,
+                {
+                    headers: getAuthHeaders()
+                }
+            );
+
+            console.log("✅ Horarios guardados:", response.data);
+
             return response.data;
+
         } catch (error) {
-            console.error("Error al guardar horarios", error);
+
+            console.error("❌ Error al guardar horarios:", error);
+
             throw error;
         }
     }

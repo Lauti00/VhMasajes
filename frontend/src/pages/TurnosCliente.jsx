@@ -50,7 +50,7 @@ export default function TurnosCliente() {
         if (fecha && token) {
             setHoraElegida('');
             setCargandoHoras(true);
-            fetch(`http://localhost:8083/api/turnos/disponibilidad/${fecha}`, {
+            fetch(`${API_URL}/api/turnos/disponibilidad/${fecha}`, {
                 headers: { "Authorization": `Bearer ${token}` }
             })
             .then(res => res.json())

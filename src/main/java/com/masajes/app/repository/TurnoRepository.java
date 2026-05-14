@@ -23,10 +23,17 @@ public interface TurnoRepository extends JpaRepository<Turno, Long> {
     @Query("SELECT COALESCE(SUM(t.precioCobrado), 0.0) FROM Turno t WHERE t.estado = com.masajes.app.model.EstadoTurno.ATENDIDO")
     Double sumarGananciasTotales();
 
-    @Query("SELECT FUNCTION('MONTHNAME', t.fecha) as mes, SUM(t.precioCobrado) as total " +
-           "FROM Turno t WHERE t.estado = com.masajes.app.model.EstadoTurno.ATENDIDO " +
-           "GROUP BY FUNCTION('MONTHNAME', t.fecha)")
-    List<Object[]> obtenerGananciasPorMes();
+   @Query(value = """
+    SELECT 
+        EXTRACT(MONTH FROM t.fecha) AS numero_mes,
+        TO_CHAR(t.fecha, 'Month') AS mes,
+        SUM(t.precio_cobrado) AS total
+    FROM turnos t
+    WHERE t.estado = 'ATENDIDO'
+    GROUP BY numero_mes, mes
+    ORDER BY numero_mes
+    """, nativeQuery = true)
+List<Object[]> obtenerGananciasPorMes();
 
     @Query("SELECT s.nombre, COUNT(t) FROM Turno t JOIN t.servicio s " +
            "GROUP BY s.nombre")
