@@ -107,7 +107,7 @@ public class SecurityConfig {
                 "http://localhost:5173",
                 "http://localhost:3000",
                 "https://vhmasajes.onrender.com",
-                "https://vh-masajes.vercel.app" // 👈 TU FRONT EN PRODUCCIÓN
+                "https://beamish-moxie-493609.netlify.app" // NUEVO FRONT EN NETLIFY
         ));
 
         configuration.setAllowedMethods(Arrays.asList(
