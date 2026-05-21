@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import API_URL from "../config/api";
 import { useAuth } from "../context/useAuth";
+
 import {
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  CartesianGrid,
+ CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   PieChart,
@@ -13,8 +15,6 @@ import {
   Cell,
   Legend
 } from 'recharts';
-
-const API_URL = "http://localhost:8083";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#84d887'];
 
