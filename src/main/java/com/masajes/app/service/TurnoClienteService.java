@@ -51,83 +51,54 @@ public class TurnoClienteService {
 
     public List<String> getHorasDisponibles(LocalDate fecha) {
 
-        int diaSemana = fecha.getDayOfWeek().getValue();
+    int diaSemana = fecha.getDayOfWeek().getValue();
 
-        Optional<HorarioAtencion> configOpt =
-                horarioRepository.findByDiaSemana(diaSemana);
+    Optional<HorarioAtencion> configOpt =
+            horarioRepository.findByDiaSemana(diaSemana);
 
-        LocalTime apertura;
-        LocalTime cierre;
-
-        // Si no hay configuración
-        if (configOpt.isEmpty()) {
-
-            apertura = LocalTime.of(9, 0);
-            cierre = LocalTime.of(18, 0);
-
-        } else {
-
-            HorarioAtencion config = configOpt.get();
-
-            // Día no laborable
-            if (!config.isLaborable()) {
-                return new ArrayList<>();
-            }
-
-            apertura = config.getHoraApertura();
-            cierre = config.getHoraCierre();
-        }
-
-        // =========================================
-        // GENERAR HORARIOS
-        // =========================================
-
-        List<LocalTime> slots = new ArrayList<>();
-
-        LocalTime horaActual = apertura;
-
-        while (horaActual.isBefore(cierre)) {
-
-            slots.add(horaActual);
-
-            horaActual = horaActual.plusMinutes(60);
-        }
-
-        // =========================================
-        // OBTENER TURNOS OCUPADOS
-        // =========================================
-
-        LocalDateTime inicioDia = fecha.atStartOfDay();
-
-        LocalDateTime finDia = fecha.atTime(LocalTime.MAX);
-
-        List<Turno> ocupados =
-                turnoRepository.buscarTurnosDelDia(inicioDia, finDia);
-
-        // =========================================
-        // FILTRAR HORAS OCUPADAS
-        // =========================================
-
-        List<LocalTime> horasOcupadas = ocupados.stream()
-
-                .filter(t -> t.getEstado() != EstadoTurno.CANCELADO)
-
-                .map(t -> t.getFecha().toLocalTime())
-
-                .collect(Collectors.toList());
-
-        // =========================================
-        // DEVOLVER SOLO DISPONIBLES
-        // =========================================
-
-        return slots.stream()
-
-                .filter(slot -> !horasOcupadas.contains(slot))
-
-                .map(slot -> slot.toString().substring(0, 5))
-
-                .collect(Collectors.toList());
+    // SI NO EXISTE CONFIGURACIÓN -> NO HAY ATENCIÓN
+    if (configOpt.isEmpty()) {
+        return new ArrayList<>();
     }
+
+    HorarioAtencion config = configOpt.get();
+
+    // SI EL DÍA NO ES LABORABLE
+    if (!config.isLaborable()) {
+        return new ArrayList<>();
+    }
+
+    LocalTime apertura = config.getHoraApertura();
+    LocalTime cierre = config.getHoraCierre();
+
+    List<LocalTime> slots = new ArrayList<>();
+
+    LocalTime horaActual = apertura;
+
+    while (horaActual.isBefore(cierre)) {
+
+        slots.add(horaActual);
+
+        horaActual = horaActual.plusMinutes(60);
+    }
+
+    LocalDateTime inicioDia = fecha.atStartOfDay();
+
+    LocalDateTime finDia = fecha.atTime(LocalTime.MAX);
+
+    List<Turno> ocupados =
+            turnoRepository.findByFechaBetween(inicioDia, finDia);
+
+    List<LocalTime> horasOcupadas = ocupados.stream()
+            .filter(t -> t.getEstado() != EstadoTurno.CANCELADO)
+            .map(t -> t.getFecha().toLocalTime())
+            .collect(Collectors.toList());
+
+    return slots.stream()
+            .filter(s -> !horasOcupadas.contains(s))
+            .map(s -> s.toString().substring(0, 5))
+            .collect(Collectors.toList());
+}
 
     // =========================================
     // CREAR RESERVA
