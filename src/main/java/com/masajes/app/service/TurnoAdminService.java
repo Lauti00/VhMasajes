@@ -39,19 +39,31 @@ public class TurnoAdminService {
     }
 
     // ==========================================
-    // CORREGIDO: MÉTODO PARA EDITAR EL TURNO
+    //  MÉTODO PARA EDITAR EL TURNO
     // ==========================================
+   
     public Turno editarTurno(Long id, TurnoDTO turnoEditado) {
         // 1. Buscamos el turno existente
         Turno turno = obtenerTurnoPorId(id);
         
-        // 2. Modificamos la fecha
+        // 2.  Verificar si YA EXISTE otro turno en esa misma fecha y hora
+        // Excluimos el mismo turno que estamos editando (t.id != :id)
+        Long turnosDuplicados = entityManager.createQuery(
+                "SELECT COUNT(t) FROM Turno t WHERE t.fecha = :fecha AND t.id != :id", Long.class)
+                .setParameter("fecha", turnoEditado.getFecha())
+                .setParameter("id", id)
+                .getSingleResult();
+
+        if (turnosDuplicados > 0) {
+            // Lanza un error si el horario ya está ocupado
+            throw new IllegalArgumentException("Horario no disponible: Ya existe un turno reservado para esa fecha y hora.");
+        }
+        
+        // 3. Si el horario está libre, procedemos a modificar los datos
         turno.setFecha(turnoEditado.getFecha());
-        
-        
         turno.setPrecioCobrado(turnoEditado.getPrecio());
         
-        
+        // 4. Buscamos la entidad Servicio por su nombre en la BD
         com.masajes.app.model.Service servicioEntity = entityManager.createQuery(
                 "SELECT s FROM Service s WHERE s.nombre = :nombre", com.masajes.app.model.Service.class)
                 .setParameter("nombre", turnoEditado.getServicio())
@@ -62,7 +74,7 @@ public class TurnoAdminService {
 
         turno.setServicio(servicioEntity);
         
-        // 5. Guardamos y retornamos
+        // 5. Guardamos y retornamos el turno actualizado
         return turnoRepository.save(turno);
     }
 
