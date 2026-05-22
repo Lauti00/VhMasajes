@@ -41,40 +41,26 @@ public class TurnoAdminController {
     private TurnoMapper turnoMapper;
 
     private User getUsuarioAutenticado() {
-
-        Authentication auth =
-                SecurityContextHolder.getContext().getAuthentication();
-
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof User)) {
             throw new RuntimeException("Usuario no autenticado");
         }
-
         return (User) auth.getPrincipal();
     }
 
     @GetMapping
     public ResponseEntity<List<TurnoDTO>> listarTodos() {
-
-        List<TurnoDTO> turnos =
-                turnoAdminService.obtenerTodosLosTurnos()
-                        .stream()
-                        .map(turnoMapper::toDTO)
-                        .collect(Collectors.toList());
-
+        List<TurnoDTO> turnos = turnoAdminService.obtenerTodosLosTurnos()
+                .stream()
+                .map(turnoMapper::toDTO)
+                .collect(Collectors.toList());
         return ResponseEntity.ok(turnos);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TurnoDTO> obtenerTurno(
-            @PathVariable Long id
-    ) {
-
-        Turno turno =
-                turnoAdminService.obtenerTurnoPorId(id);
-
-        return ResponseEntity.ok(
-                turnoMapper.toDTO(turno)
-        );
+    public ResponseEntity<TurnoDTO> obtenerTurno(@PathVariable Long id) {
+        Turno turno = turnoAdminService.obtenerTurnoPorId(id);
+        return ResponseEntity.ok(turnoMapper.toDTO(turno));
     }
 
     @PatchMapping("/{id}/estado")
@@ -82,59 +68,36 @@ public class TurnoAdminController {
             @PathVariable Long id,
             @RequestParam EstadoTurno nuevoEstado
     ) {
+        Turno actualizado = turnoAdminService.cambiarEstadoTurno(id, nuevoEstado);
+        return ResponseEntity.ok(turnoMapper.toDTO(actualizado));
+    }
 
-        Turno actualizado =
-                turnoAdminService.cambiarEstadoTurno(
-                        id,
-                        nuevoEstado
-                );
-
-        return ResponseEntity.ok(
-                turnoMapper.toDTO(actualizado)
-        );
+    // ==========================================
+    // NUEVO: EDITAR TURNO (REPROGRAMAR / CAMBIAR SERVICIO)
+    // ==========================================
+    @PutMapping("/{id}")
+    public ResponseEntity<TurnoDTO> editarTurno(
+            @PathVariable Long id,
+            @RequestBody TurnoDTO turnoEditado
+    ) {
+        // Asumimos que vas a agregar el método 'editarTurno' en tu TurnoAdminService
+        Turno actualizado = turnoAdminService.editarTurno(id, turnoEditado);
+        return ResponseEntity.ok(turnoMapper.toDTO(actualizado));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarDefinitivo(
-            @PathVariable Long id
-    ) {
-
-        User admin =
-                getUsuarioAutenticado();
-
-        turnoAdminService.eliminarTurnoDefinitivo(
-                id,
-                admin
-        );
-
+    public ResponseEntity<Void> eliminarDefinitivo(@PathVariable Long id) {
+        User admin = getUsuarioAutenticado();
+        turnoAdminService.eliminarTurnoDefinitivo(id, admin);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getStats() {
-
-        Map<String, Object> stats =
-                new HashMap<>();
-
-        stats.put(
-                "ganancias",
-                turnoRepository.sumarGananciasTotales()
-        );
-
-        stats.put(
-                "totalTurnos",
-                turnoRepository.countByEstado(
-                        EstadoTurno.ATENDIDO
-                )
-        );
-
-        stats.put(
-                "ausencias",
-                turnoRepository.countByEstado(
-                        EstadoTurno.AUSENTE
-                )
-        );
-
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("ganancias", turnoRepository.sumarGananciasTotales());
+        stats.put("totalTurnos", turnoRepository.countByEstado(EstadoTurno.ATENDIDO));
+        stats.put("ausencias", turnoRepository.countByEstado(EstadoTurno.AUSENTE));
         return ResponseEntity.ok(stats);
     }
 }
