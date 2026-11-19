@@ -12,27 +12,23 @@ Si olvidás la contraseña del administrador local, detené el backend y ejecut�
 
 Las cuentas nuevas usan contraseñas de 12 caracteres como mínimo. Las cuentas existentes conservan su acceso y pueden actualizar su contraseña desde **Cambiar contraseña**.
 
-## Publicar el backend
+## Publicar frontend y API en Render con Neon PostgreSQL
 
-El `Dockerfile` construye y ejecuta el backend con Java 21. Configurá estas variables en el proveedor de hosting:
+El archivo `render.yaml` deja definidos dos recursos: el frontend React como sitio estático y la API desde el `Dockerfile`. Usa la base Neon existente; no crea una base nueva. El costo de referencia actual para mantener activa la API en Render es aproximadamente USD 7/mes; el sitio estático no tiene costo de cómputo. El costo y los límites de Neon dependen de tu plan actual, así que revisalos en su panel.
 
-| Variable | Uso |
-| --- | --- |
-| `SPRING_PROFILES_ACTIVE` | `prod` |
-| `DB_URL` | URL JDBC de PostgreSQL administrado, incluyendo SSL si el proveedor lo requiere |
-| `DB_USERNAME` / `DB_PASSWORD` | Credenciales de la base, guardadas como secretos del proveedor |
-| `JWT_SECRET` | Secreto aleatorio de al menos 64 caracteres; el código no trae un secreto de producción |
-| `CORS_ALLOWED_ORIGINS` | Origen exacto del frontend, por ejemplo `https://turnos.tudominio.com` |
-| `INITIAL_ADMIN_EMAIL` / `INITIAL_ADMIN_PASSWORD` | Opcionales: crean el administrador solo si ese correo todavía no existe |
-| `INITIAL_ADMIN_NAME` | Nombre opcional para la cuenta inicial |
+1. Subí estos cambios a tu rama `main` de GitHub vos mismo.
+2. En Render, creá un **Blueprint** conectado a `Lauti00/VhMasajes`, rama `main`, usando el archivo `render.yaml`.
+3. Render pedirá `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD`. Copiá la URL JDBC, usuario y contraseña desde Neon directamente al formulario de Render, sin compartirlos por chat ni guardarlos en GitHub. Ingresá también el correo y una contraseña segura de al menos 12 caracteres para el administrador.
+4. Generá `JWT_SECRET` localmente con PowerShell: `$bytes = New-Object byte[] 64; $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create(); $rng.GetBytes($bytes); [Convert]::ToBase64String($bytes); $rng.Dispose()`. Pegá el resultado directamente en Render. Tiene 64 bytes aleatorios antes de codificarse en Base64, como exige HS512.
+5. Esperá a que los dos recursos aparezcan como listos. La variable `VITE_API_URL` toma automáticamente la URL pública de la API.
+6. En `vhmasajes-api`, agregá `CORS_ALLOWED_ORIGINS` con el origen exacto que Render asignó a `vhmasajes-web`, por ejemplo `https://vhmasajes-web.onrender.com` (sin `/reservar`). Guardá el cambio y esperá el redeploy de la API.
+7. Abrí `https://<dominio-del-frontend>/reservar` desde un celular usando datos móviles. Registrá un usuario de prueba, reservá y comprobá que el turno aparezca en la agenda administrativa.
 
-No uses H2 para producción: es la base local de desarrollo y no está pensada como almacenamiento administrado multiusuario.
+La base Neon existente queda separada de los datos de `./data/masajes` local; no se importan automáticamente. El sitio estático y la API tienen HTTPS administrado por Render. PostgreSQL se conecta mediante la URL JDBC privada/pooler de Neon configurada en Render.
 
-## Publicar el frontend
+No cargues información real de pacientes hasta probar el despliegue, definir copias de seguridad y revisar el tratamiento de datos personales. La configuración actual es para un solo consultorio; todavía no aísla los datos para comercializar la app a varios consultorios.
 
-Publicá `frontend` como sitio Vite/React. En el proveedor definí `VITE_API_URL` con el origen del backend, sin barra final, por ejemplo `https://api.tudominio.com`. El archivo `.env.example` deja el valor vacío para que en desarrollo funcione el proxy de Vite.
-
-El frontend incluye `public/_redirects` para que Netlify devuelva `index.html` al abrir directamente rutas como `/reservar`.
+Render puede desplegar automáticamente cada nuevo push a `main`; como vos querés manejar GitHub, cada actualización del sitio ocurrirá después de un push tuyo.
 
 ## Estado para comercializar como SaaS
 
