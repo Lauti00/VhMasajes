@@ -84,11 +84,12 @@ public class ReservaPublicaService {
         List<String> disponibles = new ArrayList<>();
         int duracion = servicio.getDuracionMinutos() == null || servicio.getDuracionMinutos() <= 0 ? 60 : servicio.getDuracionMinutos();
         while (!candidato.plusMinutes(duracion).isAfter(finAtencion)) {
-            LocalDateTime fin = candidato.plusMinutes(duracion);
+            LocalDateTime inicio = candidato;
+            LocalDateTime fin = inicio.plusMinutes(duracion);
             boolean ocupado = ocupados.stream()
                     .filter(t -> !t.getId().equals(turnoActual.getId()) && t.getEstado() != EstadoTurno.CANCELADO)
-                    .anyMatch(t -> seSuperpone(candidato, fin, t));
-            if (!candidato.isBefore(ahora) && !ocupado) disponibles.add(candidato.toLocalTime().toString());
+                    .anyMatch(t -> seSuperpone(inicio, fin, t));
+            if (!inicio.isBefore(ahora) && !ocupado) disponibles.add(inicio.toLocalTime().toString());
             candidato = candidato.plusMinutes(15);
         }
         return disponibles;
