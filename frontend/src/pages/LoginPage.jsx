@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import './AuthPage.css';
@@ -33,21 +33,33 @@ export default function LoginPage() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h1>📅 Gestión de Turnos</h1>
-        <h2>Iniciar Sesión</h2>
+      <div className="auth-layout">
+        <aside className="auth-brand-panel">
+          <Link className="auth-brand" to="/reservar"><span className="auth-brand-mark" aria-hidden="true">VH</span><span>VH MASAJES</span></Link>
+          <div className="auth-brand-copy"><span>BIENESTAR Y CUIDADO PERSONAL</span><h1>Un momento para volver a vos.</h1><p>Reservá tu espacio de bienestar con atención cercana y tratamientos pensados para vos.</p></div>
+          <div className="auth-brand-foot">Atención personalizada · VH Masajes</div>
+        </aside>
+        <main className="auth-content">
+        <div className="auth-card">
+        <div className="auth-mobile-brand">VH MASAJES</div>
+        <span className="auth-eyebrow">TU ESPACIO PERSONAL</span>
+        <h2>Iniciar sesión</h2>
+        <p className="auth-description">Accedé para consultar y gestionar tus turnos.</p>
 
         {(error || localError) && (
-          <div className="error-message">
-            <span>⚠️ {error || localError}</span>
+          <div className="error-message" role="alert">
+            <span>{error || localError}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Email:</label>
+            <label htmlFor="login-email">Correo electrónico</label>
             <input
+              id="login-email"
               type="email"
+              autoComplete="email"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@email.com"
@@ -56,9 +68,12 @@ export default function LoginPage() {
           </div>
 
           <div className="form-group">
-            <label>Contraseña:</label>
+            <label htmlFor="login-password">Contraseña</label>
             <input
+              id="login-password"
               type="password"
+              autoComplete="current-password"
+              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -71,9 +86,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="auth-link">
-          ¿No tienes cuenta? <a href={searchParams.get('next') ? `/register?next=${encodeURIComponent(searchParams.get('next'))}` : '/register'}>Registrarse</a>
-        </p>
+        <p className="auth-link">¿Querés reservar una sesión? <Link to="/reservar">Elegí tu turno sin crear una cuenta</Link></p>
+      </div>
+        </main>
       </div>
     </div>
   );

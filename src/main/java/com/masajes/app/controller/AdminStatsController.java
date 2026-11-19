@@ -3,7 +3,6 @@ package com.masajes.app.controller;
 import com.masajes.app.dto.DashboardStatsDTO;
 import com.masajes.app.model.EstadoTurno;
 import com.masajes.app.repository.TurnoRepository;
-import com.masajes.app.repository.UserRepository; // Necesitarás este para contar clientes
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,9 +28,6 @@ public class AdminStatsController {
     private TurnoRepository turnoRepository;
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
     private Clock businessClock;
 
     @GetMapping("/dashboard")
@@ -48,7 +44,7 @@ public class AdminStatsController {
         LocalDateTime finHoy = LocalDate.now(businessClock).atTime(LocalTime.MAX);
         dto.setTurnosHoy(turnoRepository.findByFechaBetween(inicioHoy, finHoy).size());
         
-        dto.setTotalClientes(userRepository.count()); // Cuenta todos los usuarios registrados
+        dto.setTotalClientes(turnoRepository.countDistinctPatientsWithBookings());
 
         // 2. Mapear Ganancias Mensuales para Recharts
         Map<Integer, Double> totalesPorMes = turnoRepository.obtenerGananciasPorMes(anioConsulta).stream().collect(Collectors.toMap(

@@ -16,9 +16,9 @@ public class OpenAPIConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
             .info(new Info()
-                .title("API Gestión de Turnos")
+                .title("VH Masajes API")
                 .version("1.0.0")
-                .description("Sistema completo de gestión de turnos para masajes")
+                .description("Servicios de reservas y administración de VH Masajes")
                 .contact(new Contact()
                     .name("API Support")))
             .components(new Components()

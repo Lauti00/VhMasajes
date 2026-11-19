@@ -1,201 +1,73 @@
 import React, { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from "../context/useAuth";
+import { useAuth } from '../context/useAuth';
+import './TurnosPage.css';
 
-// COMPONENTES
 const TurnosCliente = lazy(() => import('./TurnosCliente'));
 const AdminDashboard = lazy(() => import('./AdminDashboard'));
 const GestorHorarios = lazy(() => import('./GestorHorarios'));
 const EstadisticasPanel = lazy(() => import('./EstadisticasPanel'));
 const AdminServicios = lazy(() => import('./AdminServices'));
 
+const SECCIONES = [
+  { id: 'agenda', label: 'Agenda', description: 'Turnos del día' },
+  { id: 'horarios', label: 'Disponibilidad', description: 'Días y horarios' },
+  { id: 'servicios', label: 'Servicios', description: 'Tratamientos y precios' },
+  { id: 'stats', label: 'Reportes', description: 'Actividad e ingresos' }
+];
+
 export default function TurnosPage() {
+  const { user, logout } = useAuth();
+  const [tabActiva, setTabActiva] = useState('agenda');
+  const esAdmin = user?.rol === 'ADMIN';
 
-    const { user, logout } = useAuth();
+  if (!esAdmin) return <Suspense fallback={<p className="page-loading" role="status">Cargando tus turnos…</p>}><TurnosCliente /></Suspense>;
 
-    const [tabActiva, setTabActiva] = useState('agenda');
+  const nombre = user?.nombre?.trim().split(/\s+/)[0] || 'profesional';
+  const seccionActual = SECCIONES.find(seccion => seccion.id === tabActiva);
 
-    // =====================================
-    // DETECTAR ADMIN
-    // =====================================
-
-    const esAdmin = user?.rol === 'ADMIN';
-
-    // =====================================
-    // SI NO ES ADMIN
-    // =====================================
-
-    if (!esAdmin) {
-
-        return <Suspense fallback={<p style={{ padding: 32, textAlign: 'center' }}>Cargando turnos…</p>}><TurnosCliente /></Suspense>;
-    }
-
-    // =====================================
-    // PANEL ADMIN
-    // =====================================
-
-    return (
-
-        <div
-            style={{
-                minHeight: '100vh',
-                backgroundColor: '#f0f2f5',
-                padding: '20px'
-            }}
-        >
-
-            <div
-                style={{
-                    maxWidth: '1200px',
-                    margin: '0 auto'
-                }}
-            >
-
-                {/* HEADER */}
-
-                <header
-                    style={{
-                        marginBottom: '30px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}
-                >
-
-                    <div>
-
-                        <h1
-                            style={{
-                                color: '#1a1a1a',
-                                margin: 0,
-                                fontSize: '1.8rem'
-                            }}
-                        >
-                            Panel de Control Profesional
-                        </h1>
-
-                        <p style={{ color: '#666' }}>
-                            Bienvenido Administrador:
-                            <strong>
-                                {" "}
-                                {user?.email}
-                            </strong>
-                        </p>
-
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <Link to="/cuenta/clave" style={{ color: '#405b48', fontWeight: 600, fontSize: 14 }}>Cambiar contraseña</Link>
-                    <button
-                        onClick={logout}
-                        style={{
-                            backgroundColor: '#dc3545',
-                            color: 'white',
-                            border: 'none',
-                            padding: '10px 15px',
-                            borderRadius: '5px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold'
-                        }}
-                    >
-                        Cerrar Sesión
-                    </button>
-                    </div>
-
-                </header>
-
-                {/* TABS */}
-
-                <div
-                    style={{
-                        display: 'flex',
-                        gap: '10px',
-                        marginBottom: '20px',
-                        borderBottom: '2px solid #ddd'
-                    }}
-                >
-
-                    <button
-                        onClick={() => setTabActiva('agenda')}
-                        style={tabStyle(tabActiva === 'agenda')}
-                    >
-                        📅 Agenda
-                    </button>
-
-                    <button
-                        onClick={() => setTabActiva('horarios')}
-                        style={tabStyle(tabActiva === 'horarios')}
-                    >
-                        ⏱️ Horarios
-                    </button>
-
-                    <button
-                        onClick={() => setTabActiva('servicios')}
-                        style={tabStyle(tabActiva === 'servicios')}
-                    >
-                        💆 Servicios
-                    </button>
-
-                    <button
-                        onClick={() => setTabActiva('stats')}
-                        style={tabStyle(tabActiva === 'stats')}
-                    >
-                        📊 Reportes
-                    </button>
-
-                </div>
-
-                {/* CONTENIDO */}
-
-                <div style={{ padding: '10px 0' }}>
-
-                    <Suspense fallback={<p style={{ padding: 32, textAlign: 'center' }}>Cargando panel…</p>}>
-                    {tabActiva === 'agenda' && <AdminDashboard />}
-
-                    {tabActiva === 'horarios' && (
-                        <GestorHorarios />
-                    )}
-
-                    {tabActiva === 'servicios' && <AdminServicios />}
-
-                    {tabActiva === 'stats' && <EstadisticasPanel />}
-                    </Suspense>
-
-                </div>
-
-            </div>
-
+  return (
+    <div className="admin-layout">
+      <header className="admin-header">
+        <Link className="admin-brand" to="/" aria-label="VH Masajes, inicio">
+          <span className="admin-brand-mark" aria-hidden="true">VH</span>
+          <span>VH <strong>MASAJES</strong><small>GESTIÓN DE TURNOS</small></span>
+        </Link>
+        <div className="admin-account">
+          <div className="admin-account-copy"><span>Sesión profesional</span><strong>Hola, {nombre}</strong></div>
+          <Link className="admin-account-link" to="/cuenta/clave">Cambiar contraseña</Link>
+          <button className="admin-logout" type="button" onClick={logout}>Cerrar sesión</button>
         </div>
-    );
+      </header>
+
+      <div className="admin-workspace">
+        <aside className="admin-sidebar" aria-label="Navegación de administración">
+          <p className="admin-sidebar-label">ESPACIO DE TRABAJO</p>
+          <nav className="admin-tabs" aria-label="Secciones">
+            {SECCIONES.map((seccion, index) => <button
+              key={seccion.id}
+              className={`admin-tab ${tabActiva === seccion.id ? 'active' : ''}`}
+              type="button"
+              aria-current={tabActiva === seccion.id ? 'page' : undefined}
+              onClick={() => setTabActiva(seccion.id)}
+            >
+              <span className="admin-tab-number" aria-hidden="true">0{index + 1}</span>
+              <span><strong>{seccion.label}</strong><small>{seccion.description}</small></span>
+            </button>)}
+          </nav>
+          <div className="admin-sidebar-note"><strong>Atención organizada</strong><p>Compartí tu enlace de reserva para que tus pacientes elijan un horario disponible.</p></div>
+        </aside>
+
+        <main className="admin-main" id="contenido-principal">
+          <div className="admin-section-heading"><p className="admin-section-overline">VH MASAJES / {seccionActual?.label.toLocaleUpperCase('es-AR')}</p></div>
+          <Suspense fallback={<p className="page-loading" role="status">Cargando {seccionActual?.label.toLocaleLowerCase('es-AR')}…</p>}>
+            {tabActiva === 'agenda' && <AdminDashboard />}
+            {tabActiva === 'horarios' && <GestorHorarios />}
+            {tabActiva === 'servicios' && <AdminServicios />}
+            {tabActiva === 'stats' && <EstadisticasPanel />}
+          </Suspense>
+        </main>
+      </div>
+    </div>
+  );
 }
-
-const tabStyle = (activa) => ({
-
-    padding: '12px 20px',
-
-    fontSize: '0.95rem',
-
-    fontWeight: 'bold',
-
-    cursor: 'pointer',
-
-    backgroundColor: activa
-        ? '#fff'
-        : 'transparent',
-
-    color: activa
-        ? '#0d6efd'
-        : '#666',
-
-    border: 'none',
-
-    borderBottom: activa
-        ? '4px solid #0d6efd'
-        : '4px solid transparent',
-
-    transition: 'all 0.3s ease',
-
-    borderRadius: '8px 8px 0 0',
-
-    outline: 'none'
-});

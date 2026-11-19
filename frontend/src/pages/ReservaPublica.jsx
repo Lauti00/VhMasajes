@@ -3,15 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import API_URL from '../config/api';
 import { useAuth } from '../context/useAuth';
 import './ReservaPublica.css';
-
-const hoyLocal = () => {
-  const hoy = new Date();
-  hoy.setMinutes(hoy.getMinutes() - hoy.getTimezoneOffset());
-  return hoy.toISOString().slice(0, 10);
-};
+import { businessDateISO, formatLocalDate } from '../utils/localDateTime';
 
 export default function ReservaPublica() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [servicios, setServicios] = useState([]);
   const [servicioId, setServicioId] = useState('');
@@ -19,11 +14,15 @@ export default function ReservaPublica() {
   const [horarios, setHorarios] = useState([]);
   const [hora, setHora] = useState('');
   const [notas, setNotas] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [apellido, setApellido] = useState('');
+  const [tokenGestion, setTokenGestion] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
   const servicio = useMemo(() => servicios.find(s => String(s.id) === servicioId), [servicios, servicioId]);
+  const enlaceGestion = tokenGestion ? `${window.location.origin}/gestionar-turno#${tokenGestion}` : '';
 
   useEffect(() => {
     const pendiente = sessionStorage.getItem('reservaPendiente');
@@ -63,25 +62,30 @@ export default function ReservaPublica() {
   const confirmar = async () => {
     setError('');
     if (!servicioId || !fecha || !hora) { setError('Elegí un servicio, un día y un horario.'); return; }
-    const reserva = { servicioId: Number(servicioId), fecha, hora, notas };
-    if (!isAuthenticated) {
-      sessionStorage.setItem('reservaPendiente', JSON.stringify(reserva));
-      navigate('/register?next=/reservar');
-      return;
-    }
+    if (!isAuthenticated && (!nombre.trim() || !apellido.trim())) { setError('Completá tu nombre y apellido para reservar.'); return; }
 
     setGuardando(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/turnos`, {
+      const esReservaSinCuenta = !isAuthenticated;
+      const res = await fetch(esReservaSinCuenta ? `${API_URL}/api/reservas` : `${API_URL}/api/turnos`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ fecha: `${fecha}T${hora.length === 5 ? `${hora}:00` : hora}`, servicioId: reserva.servicioId, notas })
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          fecha: `${fecha}T${hora.length === 5 ? `${hora}:00` : hora}`,
+          servicioId: Number(servicioId),
+          notas,
+          ...(isAuthenticated ? { cliente: user?.nombre || 'Paciente' } : {}),
+          ...(esReservaSinCuenta ? { nombre: nombre.trim(), apellido: apellido.trim() } : {})
+        })
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.message || 'Ese horario ya no está disponible. Elegí otro.');
-      sessionStorage.removeItem('reservaPendiente');
-      navigate('/', { state: { reservaConfirmada: true } });
+      if (esReservaSinCuenta) {
+        setTokenGestion(body.tokenGestion);
+      } else {
+        navigate('/', { state: { reservaConfirmada: true } });
+      }
     } catch (err) {
       setError(err.message || 'No se pudo confirmar el turno.');
       if (fecha && servicioId) {
@@ -96,12 +100,33 @@ export default function ReservaPublica() {
 
   if (cargando) return <main className="booking-shell"><p className="booking-muted">Cargando opciones…</p></main>;
 
+  if (tokenGestion) {
+    const compartirTexto = `Reservé ${servicio?.nombre || 'un turno'} para el ${formatLocalDate(`${fecha}T12:00:00`)} a las ${hora.slice(0, 5)} en VH Masajes. Mi enlace privado para gestionar el turno: ${enlaceGestion}`;
+    return <main className="booking-shell">
+      <header className="booking-header"><Link className="booking-brand" to="/reservar">VH <span>masajes</span></Link></header>
+      <section className="booking-card booking-confirmation" aria-labelledby="booking-confirmed-title">
+        <span className="booking-confirmation-mark" aria-hidden="true">✓</span>
+        <p className="booking-eyebrow">VH MASAJES</p>
+        <h1 id="booking-confirmed-title">Tu turno quedó reservado</h1>
+        <p>Te esperamos para disfrutar de tu momento de bienestar.</p>
+        <div className="booking-summary booking-confirmation-summary"><span>{servicio?.nombre} · {formatLocalDate(`${fecha}T12:00:00`)} · {hora.slice(0, 5)}</span><strong>${Number(servicio?.precio || 0).toLocaleString('es-AR')}</strong></div>
+        <div className="booking-private-link"><strong>Guardá tu enlace privado</strong><p>Con este enlace podés consultar, cambiar o cancelar tu turno. Cualquiera que tenga el enlace podrá gestionarlo, así que conserválo en un lugar privado.</p>
+          <button className="booking-submit" type="button" onClick={() => navigator.clipboard.writeText(enlaceGestion).then(() => setError('Enlace privado copiado.')).catch(() => window.prompt('Copiá tu enlace privado:', enlaceGestion))}>Copiar enlace de gestión</button>
+          {error && <p className="booking-copy-feedback" role="status">{error}</p>}
+          <a className="booking-whatsapp" href={`https://wa.me/?text=${encodeURIComponent(compartirTexto)}`} target="_blank" rel="noreferrer">Guardarlo en WhatsApp</a>
+        </div>
+        <Link className="booking-new-link" to="/reservar">Volver a los servicios</Link>
+      </section>
+      <footer className="booking-footer">VH Masajes · Atención personalizada</footer>
+    </main>;
+  }
+
   return (
     <main className="booking-shell">
       <header className="booking-header">
-        <Link className="booking-brand" to="/">VH <span>masajes</span></Link>
-        <Link className="booking-login" to={isAuthenticated ? '/' : '/login?next=/reservar'}>
-          {isAuthenticated ? 'Mis turnos' : 'Iniciar sesión'}
+        <Link className="booking-brand" to="/reservar">VH <span>masajes</span></Link>
+        <Link className="booking-login" to={isAuthenticated ? '/' : '/login'}>
+          {isAuthenticated ? 'Volver a mis turnos' : 'Acceso profesional'}
         </Link>
       </header>
       <section className="booking-intro">
@@ -123,7 +148,7 @@ export default function ReservaPublica() {
             {servicio?.descripcion && <p className="booking-description">{servicio.descripcion}</p>}
 
             <label className="booking-label" htmlFor="fecha">Día</label>
-            <input id="fecha" className="booking-input" type="date" min={hoyLocal()} value={fecha} onChange={e => { setFecha(e.target.value); setHora(''); }} />
+            <input id="fecha" className="booking-input" type="date" min={businessDateISO()} value={fecha} onChange={e => { setFecha(e.target.value); setHora(''); }} />
 
             {fecha && <>
               <span className="booking-label">Horarios disponibles</span>
@@ -132,17 +157,25 @@ export default function ReservaPublica() {
               </div> : <p className="booking-muted">No encontramos horarios para ese día. Probá con otra fecha.</p>}
             </>}
 
+            {!isAuthenticated && <div className="booking-name-fields">
+              <p>¿A nombre de quién reservamos?</p>
+              <label className="booking-label" htmlFor="nombre">Nombre</label>
+              <input id="nombre" className="booking-input" type="text" autoComplete="given-name" maxLength={60} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Tu nombre" required />
+              <label className="booking-label" htmlFor="apellido">Apellido</label>
+              <input id="apellido" className="booking-input" type="text" autoComplete="family-name" maxLength={60} value={apellido} onChange={e => setApellido(e.target.value)} placeholder="Tu apellido" required />
+            </div>}
+
             <label className="booking-label" htmlFor="notas">¿Querés contarnos algo? <span>(opcional)</span></label>
             <textarea id="notas" className="booking-input booking-notes" value={notas} onChange={e => setNotas(e.target.value)} placeholder="Por ejemplo, si es tu primera sesión…" maxLength={500} />
 
             {servicio && fecha && hora && <div className="booking-summary">
-              <span>{servicio.nombre} · {new Date(`${fecha}T12:00:00`).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })} a las {hora.slice(0, 5)}</span>
+              <span>{servicio.nombre} · {formatLocalDate(`${fecha}T12:00:00`)} a las {hora.slice(0, 5)}</span>
               <strong>${Number(servicio.precio).toLocaleString('es-AR')}</strong>
             </div>}
             <button className="booking-submit" type="button" onClick={confirmar} disabled={!fecha || !hora || guardando}>
-              {guardando ? 'Confirmando…' : isAuthenticated ? 'Confirmar turno' : 'Continuar para registrarme'}
+              {guardando ? 'Confirmando…' : 'Confirmar reserva'}
             </button>
-            {!isAuthenticated && <p className="booking-footnote">Para finalizar, vas a crear una cuenta gratuita. El horario se confirma al completar la reserva.</p>}
+            {!isAuthenticated && <p className="booking-footnote">No necesitás crear una cuenta. Al confirmar se genera un enlace privado para administrar tu turno.</p>}
           </>
         )}
       </section>

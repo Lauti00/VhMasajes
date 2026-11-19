@@ -15,6 +15,8 @@ import java.util.List;
 @Repository
 public interface TurnoRepository extends JpaRepository<Turno, Long> {
 
+    java.util.Optional<Turno> findByTokenGestionHash(String tokenGestionHash);
+
     // =========================================
     // TURNOS POR FECHA
     // =========================================
@@ -39,6 +41,9 @@ public interface TurnoRepository extends JpaRepository<Turno, Long> {
     long countByEstado(
         EstadoTurno estado
     );
+
+    @Query("SELECT COUNT(DISTINCT LOWER(TRIM(t.cliente))) FROM Turno t WHERE t.estado <> com.masajes.app.model.EstadoTurno.CANCELADO")
+    long countDistinctPatientsWithBookings();
 
     // =========================================
     // VALIDAR SI YA EXISTE UN TURNO

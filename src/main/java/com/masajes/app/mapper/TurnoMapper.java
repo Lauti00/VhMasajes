@@ -33,6 +33,7 @@ public class TurnoMapper {
 
             // Nombre del servicio
             dto.setServicio(turno.getServicio().getNombre());
+            dto.setServicioId(turno.getServicio().getId());
 
             // Calcular fecha fin
             if (turno.getFecha() != null) {

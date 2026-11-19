@@ -1,345 +1,216 @@
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../context/useAuth";
-import API_URL from "../config/api";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../context/useAuth';
+import API_URL from '../config/api';
+import { businessDateISO, localDateTimeInput, parseLocalDateTime, formatLocalDate, formatLocalTime } from '../utils/localDateTime';
+import './AdminDashboard.css';
+
+const ESTADOS = ['PENDIENTE', 'ATENDIDO', 'AUSENTE', 'CANCELADO'];
+const estadoLabel = { PENDIENTE: 'Pendiente', ATENDIDO: 'Atendido', AUSENTE: 'Ausente', CANCELADO: 'Cancelado' };
+const dinero = valor => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(Number(valor || 0));
 
 export default function AdminDashboard() {
   const { token } = useAuth();
-
-  const [stats, setStats] = useState({
-    ganancias: 0,
-    totalTurnos: 0,
-    ausencias: 0
-  });
-
   const [turnos, setTurnos] = useState([]);
+  const [fechaActiva, setFechaActiva] = useState(() => businessDateISO());
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('TODOS');
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
   const [linkCopiado, setLinkCopiado] = useState(false);
+  const [turnoEdit, setTurnoEdit] = useState(null);
+  const [guardando, setGuardando] = useState(false);
 
-  // ESTADOS PARA EL MODAL DE EDICIÓN
-  const [showModal, setShowModal] = useState(false);
-  const [turnoEdit, setTurnoEdit] = useState({
-    id: null,
-    fecha: "",
-    servicio: "",
-    precio: 0
-  });
-
-  // =========================================
-  // CARGAR DATOS
-  // =========================================
-  const cargarDatos = useCallback(async () => {
+  const cargarTurnos = useCallback(async () => {
     if (!token) return;
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      setErrorMsg("");
-
-      // STATS
-      const resStats = await fetch(`${API_URL}/api/admin/turnos/stats`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!resStats.ok) throw new Error("Error al obtener estadísticas");
-      const dataStats = await resStats.json();
-      setStats({
-        ganancias: dataStats.ganancias || 0,
-        totalTurnos: dataStats.totalTurnos || 0,
-        ausencias: dataStats.ausencias || 0
-      });
-
-      // TURNOS
-      const resTurnos = await fetch(`${API_URL}/api/admin/turnos`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!resTurnos.ok) throw new Error("Error al obtener turnos");
-      const dataTurnos = await resTurnos.json();
-      setTurnos(Array.isArray(dataTurnos) ? dataTurnos : []);
-
+      const response = await fetch(`${API_URL}/api/admin/turnos`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) throw new Error('No pudimos cargar la agenda. Intentá actualizar.');
+      const data = await response.json();
+      setTurnos(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("❌ Error cargando dashboard:", err);
-      setErrorMsg(err.message || "Error de conexión");
+      setError(err.message || 'Ocurrió un error al cargar la agenda.');
     } finally {
       setLoading(false);
     }
   }, [token]);
 
-  useEffect(() => {
-    cargarDatos();
-  }, [cargarDatos]);
+  useEffect(() => { cargarTurnos(); }, [cargarTurnos]);
 
-  // =========================================
-  // ACTUALIZAR ESTADO
-  // =========================================
-  const actualizarEstado = async (id, nuevoEstado) => {
-    try {
-      const res = await fetch(
-        `${API_URL}/api/admin/turnos/${id}/estado?nuevoEstado=${nuevoEstado}`,
-        {
-          method: "PATCH",
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      if (!res.ok) throw new Error("No se pudo actualizar");
-      await cargarDatos();
-      alert("✅ Estado actualizado");
-    } catch (err) {
-      console.error(err);
-      alert("❌ Error al actualizar");
-    }
+  const turnosDelDia = useMemo(() => turnos
+    .filter(turno => localDateTimeInput(turno.fecha).slice(0, 10) === fechaActiva)
+    .sort((a, b) => (parseLocalDateTime(a.fecha)?.getTime() || 0) - (parseLocalDateTime(b.fecha)?.getTime() || 0)), [turnos, fechaActiva]);
+
+  const turnosVisibles = useMemo(() => turnosDelDia.filter(turno => {
+    const coincideEstado = filtroEstado === 'TODOS' || turno.estado === filtroEstado;
+    const consulta = busqueda.trim().toLocaleLowerCase('es');
+    const coincideTexto = !consulta || `${turno.cliente || ''} ${turno.servicio || ''}`.toLocaleLowerCase('es').includes(consulta);
+    return coincideEstado && coincideTexto;
+  }), [turnosDelDia, filtroEstado, busqueda]);
+
+  const resumen = useMemo(() => ({
+    total: turnosDelDia.filter(t => t.estado !== 'CANCELADO').length,
+    pendientes: turnosDelDia.filter(t => t.estado === 'PENDIENTE').length,
+    atendidos: turnosDelDia.filter(t => t.estado === 'ATENDIDO').length,
+    facturado: turnosDelDia.filter(t => t.estado === 'ATENDIDO').reduce((suma, t) => suma + Number(t.precio || 0), 0)
+  }), [turnosDelDia]);
+
+  const moverDia = cantidad => {
+    const [year, month, day] = fechaActiva.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day + cantidad, 12));
+    setFechaActiva(businessDateISO(date));
   };
 
-  // =========================================
-  // ELIMINAR TURNO
-  // =========================================
-  const eliminarTurno = async (id) => {
-    const confirmar = window.confirm("¿Seguro que deseas eliminar este turno definitivamente?");
-    if (!confirmar) return;
-
+  const actualizarEstado = async (turno, nuevoEstado) => {
+    if (nuevoEstado === turno.estado) return;
     try {
-      const res = await fetch(`${API_URL}/api/admin/turnos/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch(`${API_URL}/api/admin/turnos/${turno.id}/estado?nuevoEstado=${nuevoEstado}`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error("No se pudo eliminar");
-      await cargarDatos();
-      alert("✅ Turno eliminado");
-    } catch (err) {
-      console.error(err);
-      alert("❌ Error al eliminar");
-    }
+      if (!response.ok) throw new Error('No se pudo cambiar el estado.');
+      setMensaje(`Turno de ${turno.cliente || 'paciente'} actualizado: ${estadoLabel[nuevoEstado].toLowerCase()}.`);
+      await cargarTurnos();
+    } catch (err) { setMensaje(err.message); }
   };
 
-  // =========================================
-  // EDITAR TURNO (ABRIR MODAL Y GUARDAR)
-  // =========================================
-  const abrirModalEditar = (turno) => {
-    // Formateamos la fecha para el input datetime-local (YYYY-MM-DDTHH:mm)
-    const fechaFormateada = new Date(turno.fecha).toISOString().slice(0, 16);
-    setTurnoEdit({
-      id: turno.id,
-      fecha: fechaFormateada,
-      servicio: turno.servicio,
-      precio: turno.precio
-    });
-    setShowModal(true);
-  };
-
-  const guardarEdicion = async (e) => {
-    e.preventDefault();
+  const eliminarTurno = async turno => {
+    if (!window.confirm(`¿Eliminar definitivamente el turno de ${turno.cliente || 'este paciente'}?`)) return;
     try {
-      const res = await fetch(`${API_URL}/api/admin/turnos/${turnoEdit.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(turnoEdit)
+      const response = await fetch(`${API_URL}/api/admin/turnos/${turno.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) throw new Error('No se pudo eliminar el turno.');
+      setMensaje('Turno eliminado.');
+      await cargarTurnos();
+    } catch (err) { setMensaje(err.message); }
+  };
+
+  const guardarEdicion = async event => {
+    event.preventDefault();
+    setGuardando(true);
+    try {
+      const response = await fetch(`${API_URL}/api/admin/turnos/${turnoEdit.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ fecha: turnoEdit.fecha, servicio: turnoEdit.servicio, precio: Number(turnoEdit.precio) })
       });
-
-      if (!res.ok) throw new Error("No se pudo editar el turno");
-      await cargarDatos();
-      setShowModal(false);
-      alert("✅ Turno editado exitosamente");
-    } catch (err) {
-      console.error(err);
-      alert("❌ Error al editar el turno");
-    }
+      if (!response.ok) throw new Error('No se pudo guardar. Verificá que el nuevo horario esté libre.');
+      setTurnoEdit(null);
+      setMensaje('Cambios guardados.');
+      await cargarTurnos();
+    } catch (err) { setMensaje(err.message); }
+    finally { setGuardando(false); }
   };
 
-  // =========================================
-  // EXPORTAR CSV
-  // =========================================
-  const exportarExcel = () => {
-    const headers = ["Fecha", "Cliente", "Servicio", "Precio", "Estado"];
-    const rows = turnos.map(t => [
-      new Date(t.fecha).toLocaleString(),
-      t.cliente,
-      t.servicio,
-      t.precio,
-      t.estado
-    ]);
-    const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `Reporte_${new Date().toISOString().split("T")[0]}.csv`;
-    link.click();
-  };
-
-  const copiarLinkReserva = async () => {
-    const link = `${window.location.origin}/reservar`;
+  const copiarLink = async () => {
+    const url = `${window.location.origin}/reservar`;
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(url);
       setLinkCopiado(true);
       window.setTimeout(() => setLinkCopiado(false), 2500);
-    } catch {
-      window.prompt("Copiá este link para compartirlo con tus pacientes:", link);
-    }
+    } catch { window.prompt('Copiá el enlace de reservas:', url); }
   };
 
-  if (loading) {
-    return <div style={{ padding: "40px", textAlign: "center" }}>⏳ Cargando panel...</div>;
-  }
+  const compartirPorWhatsApp = () => {
+    const url = `${window.location.origin}/reservar`;
+    const texto = `Hola, gracias por escribir a VH Masajes. Podés elegir el servicio y el horario que prefieras desde acá: ${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const exportarCSV = () => {
+    const filas = [['Fecha', 'Horario', 'Paciente', 'Servicio', 'Precio', 'Estado'], ...turnosDelDia.map(t => [fechaActiva, formatLocalTime(t.fecha), t.cliente, t.servicio, t.precio, estadoLabel[t.estado] || t.estado])];
+    const csv = filas.map(fila => fila.map(campo => `"${String(campo ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n');
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
+    link.download = `Agenda_${fechaActiva}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  if (loading) return <div className="agenda-state" role="status">Cargando agenda…</div>;
 
   return (
-    <div style={{ padding: "30px", backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
-      {errorMsg && (
-        <div style={{ backgroundColor: "#f8d7da", color: "#721c24", padding: "15px", borderRadius: "8px", marginBottom: "20px" }}>
-          {errorMsg}
+    <section className="admin-agenda" aria-labelledby="agenda-title">
+      <div className="agenda-toolbar">
+        <div>
+          <p className="agenda-kicker">ORGANIZACIÓN DIARIA</p>
+          <h1 id="agenda-title">Agenda</h1>
+          <p className="agenda-subtitle">Consultá tus turnos y gestioná cada atención.</p>
         </div>
-      )}
-
-      {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "30px" }}>
-        <h1>Panel de Administración</h1>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button onClick={copiarLinkReserva} style={{ backgroundColor: "#405b48", color: "white", border: "none", padding: "10px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>
-            {linkCopiado ? "✓ Link copiado" : "🔗 Copiar link para reservar"}
-          </button>
-          <button onClick={exportarExcel} style={{ backgroundColor: "#198754", color: "white", border: "none", padding: "10px 20px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>
-            📥 Descargar CSV
-          </button>
+        <div className="agenda-toolbar-actions">
+          <button className="agenda-button agenda-button-secondary" type="button" onClick={copiarLink}>{linkCopiado ? 'Enlace copiado' : 'Compartir reservas'}</button>
+          <button className="agenda-button agenda-button-secondary" type="button" onClick={compartirPorWhatsApp}>Preparar mensaje WhatsApp</button>
+          <button className="agenda-button agenda-button-secondary" type="button" onClick={exportarCSV} disabled={!turnosDelDia.length}>Descargar día</button>
+          <button className="agenda-button agenda-button-primary" type="button" onClick={cargarTurnos}>Actualizar agenda</button>
         </div>
       </div>
 
-      {/* STATS */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px,1fr))", gap: "20px", marginBottom: "30px" }}>
-        <Card titulo="Ganancias" valor={`$${Number(stats.ganancias).toLocaleString()}`} color="#0d6efd" />
-        <Card titulo="Atendidos" valor={stats.totalTurnos} color="#198754" />
-        <Card titulo="Ausencias" valor={stats.ausencias} color="#dc3545" />
+      {(error || mensaje) && <div className={`agenda-message ${error ? 'is-error' : ''}`} role={error ? 'alert' : 'status'}>
+        <span>{error || mensaje}</span>
+        {error && <button className="agenda-text-button" type="button" onClick={cargarTurnos}>Reintentar</button>}
+        {!error && <button className="agenda-message-close" type="button" aria-label="Cerrar aviso" onClick={() => setMensaje('')}>×</button>}
+      </div>}
+
+      <div className="agenda-datebar">
+        <div className="agenda-day-navigation">
+          <button className="agenda-arrow" type="button" onClick={() => moverDia(-1)} aria-label="Ver día anterior">‹</button>
+          <div><h2>{formatLocalDate(`${fechaActiva}T12:00:00`)}</h2><span>{fechaActiva === businessDateISO() ? 'Hoy' : 'Vista diaria'}</span></div>
+          <button className="agenda-arrow" type="button" onClick={() => moverDia(1)} aria-label="Ver día siguiente">›</button>
+          <button className="agenda-button agenda-today" type="button" onClick={() => setFechaActiva(businessDateISO())}>Ir a hoy</button>
+        </div>
+        <label className="agenda-date-input">Elegir fecha<input type="date" value={fechaActiva} onChange={event => setFechaActiva(event.target.value)} /></label>
       </div>
 
-      {/* TABLA */}
-      <div style={{ backgroundColor: "white", borderRadius: "10px", padding: "20px", overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Fecha</th>
-              <th style={thStyle}>Cliente</th>
-              <th style={thStyle}>Servicio</th>
-              <th style={thStyle}>Precio</th>
-              <th style={thStyle}>Estado</th>
-              <th style={thStyle}>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {turnos.map(t => (
-              <tr key={t.id} style={{ borderBottom: "1px solid #eee" }}>
-                <td style={tdStyle}>{new Date(t.fecha).toLocaleString()}</td>
-                <td style={tdStyle}>{t.cliente}</td>
-                <td style={tdStyle}>{t.servicio}</td>
-                <td style={tdStyle}>${t.precio}</td>
-                <td style={tdStyle}><span style={badgeStyle(t.estado)}>{t.estado}</span></td>
-                <td style={tdStyle}>
-                  <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
-                    {t.estado === "PENDIENTE" && (
-                      <>
-                        <button onClick={() => actualizarEstado(t.id, "ATENDIDO")} style={btn("#198754")}>Atendido</button>
-                        <button onClick={() => actualizarEstado(t.id, "AUSENTE")} style={btn("#dc3545")}>Ausente</button>
-                        <button onClick={() => actualizarEstado(t.id, "CANCELADO")} style={btn("#6c757d")}>Cancelar</button>
-                      </>
-                    )}
-                    {/* NUEVO BOTON EDITAR */}
-                    <button onClick={() => abrirModalEditar(t)} style={btn("#0d6efd")}>Editar</button>
-                    <button onClick={() => eliminarTurno(t.id)} style={btn("#000")}>Eliminar</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="agenda-summary" aria-label="Resumen del día">
+        <SummaryCard label="Turnos del día" value={resumen.total} detail="Sin contar cancelados" tone="sage" />
+        <SummaryCard label="Pendientes" value={resumen.pendientes} detail="Requieren seguimiento" tone="amber" />
+        <SummaryCard label="Atendidos" value={resumen.atendidos} detail="Sesiones completadas" tone="blue" />
+        <SummaryCard label="Facturado" value={dinero(resumen.facturado)} detail="Turnos atendidos" tone="green" />
       </div>
 
-      {/* MODAL DE EDICIÓN */}
-      {showModal && (
-        <div style={modalOverlayStyle}>
-          <div style={modalContentStyle}>
-            <h2>Editar Turno</h2>
-            <form onSubmit={guardarEdicion} style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "20px" }}>
-              
-              <div>
-                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Fecha y Hora</label>
-                <input 
-                  type="datetime-local" 
-                  value={turnoEdit.fecha} 
-                  onChange={(e) => setTurnoEdit({...turnoEdit, fecha: e.target.value})}
-                  style={inputStyle}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Servicio</label>
-                <input 
-                  type="text" 
-                  value={turnoEdit.servicio} 
-                  onChange={(e) => setTurnoEdit({...turnoEdit, servicio: e.target.value})}
-                  style={inputStyle}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Precio ($)</label>
-                <input 
-                  type="number" 
-                  value={turnoEdit.precio} 
-                  onChange={(e) => setTurnoEdit({...turnoEdit, precio: e.target.value})}
-                  style={inputStyle}
-                  required
-                />
-              </div>
-
-              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "10px" }}>
-                <button type="button" onClick={() => setShowModal(false)} style={{...btn("#6c757d"), padding: "10px 15px"}}>Cancelar</button>
-                <button type="submit" style={{...btn("#198754"), padding: "10px 15px"}}>Guardar Cambios</button>
-              </div>
-
-            </form>
+      <section className="agenda-list-panel" aria-labelledby="appointments-title">
+        <div className="agenda-list-heading">
+          <div><h2 id="appointments-title">Turnos</h2><p>{turnosVisibles.length} {turnosVisibles.length === 1 ? 'resultado' : 'resultados'} para este día</p></div>
+          <div className="agenda-filters">
+            <label className="agenda-search">Buscar paciente o servicio<input type="search" value={busqueda} onChange={event => setBusqueda(event.target.value)} placeholder="Nombre o tratamiento" /></label>
+            <label className="agenda-status-filter">Estado<select value={filtroEstado} onChange={event => setFiltroEstado(event.target.value)}><option value="TODOS">Todos</option>{ESTADOS.map(estado => <option key={estado} value={estado}>{estadoLabel[estado]}</option>)}</select></label>
           </div>
         </div>
-      )}
 
-    </div>
+        {turnosVisibles.length ? <ol className="appointment-list">
+          {turnosVisibles.map(turno => <li className="appointment-item" key={turno.id}>
+            <time className="appointment-time" dateTime={localDateTimeInput(turno.fecha)}>{formatLocalTime(turno.fecha)}<span>{turno.fin ? formatLocalTime(turno.fin) : ''}</span></time>
+            <div className="appointment-main">
+              <div className="appointment-title-row"><h3>{turno.cliente || 'Paciente'}</h3><span className={`appointment-status status-${String(turno.estado).toLowerCase()}`}>{estadoLabel[turno.estado] || turno.estado}</span></div>
+              <p>{turno.servicio || 'Servicio'} <span aria-hidden="true">·</span> {dinero(turno.precio)}</p>
+              {turno.notas && <p className="appointment-notes">Nota: {turno.notas}</p>}
+            </div>
+            <div className="appointment-actions">
+              <label className="agenda-status-control">Estado<select aria-label={`Cambiar estado del turno de ${turno.cliente || 'paciente'}`} value={turno.estado} onChange={event => actualizarEstado(turno, event.target.value)}>{ESTADOS.map(estado => <option key={estado} value={estado}>{estadoLabel[estado]}</option>)}</select></label>
+              <details className="appointment-more"><summary>Más opciones</summary><div className="appointment-more-menu">
+                <button type="button" onClick={() => setTurnoEdit({ id: turno.id, fecha: localDateTimeInput(turno.fecha), servicio: turno.servicio || '', precio: turno.precio || 0 })}>Editar turno</button>
+                <button type="button" className="is-danger" onClick={() => eliminarTurno(turno)}>Eliminar turno</button>
+              </div></details>
+            </div>
+          </li>)}
+        </ol> : <div className="agenda-empty"><span className="agenda-empty-mark" aria-hidden="true">✓</span><h3>{turnosDelDia.length ? 'No hay turnos con esos filtros' : 'Día libre'}</h3><p>{turnosDelDia.length ? 'Probá cambiar el texto o el estado seleccionado.' : 'No hay reservas registradas para esta fecha.'}</p></div>}
+      </section>
+
+      {turnoEdit && <div className="agenda-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setTurnoEdit(null); }}>
+        <section className="agenda-modal" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+          <div className="agenda-modal-heading"><div><p className="agenda-kicker">ACTUALIZAR RESERVA</p><h2 id="edit-title">Editar turno</h2></div><button type="button" className="agenda-modal-close" onClick={() => setTurnoEdit(null)} aria-label="Cerrar">×</button></div>
+          <form onSubmit={guardarEdicion}>
+            <label>Fecha y hora<input type="datetime-local" value={turnoEdit.fecha} onChange={event => setTurnoEdit({ ...turnoEdit, fecha: event.target.value })} required /></label>
+            <label>Servicio<input type="text" value={turnoEdit.servicio} onChange={event => setTurnoEdit({ ...turnoEdit, servicio: event.target.value })} required /></label>
+            <label>Precio<input type="number" min="0" step="1" value={turnoEdit.precio} onChange={event => setTurnoEdit({ ...turnoEdit, precio: event.target.value })} required /></label>
+            <div className="agenda-modal-actions"><button className="agenda-button agenda-button-secondary" type="button" onClick={() => setTurnoEdit(null)}>Volver</button><button className="agenda-button agenda-button-primary" type="submit" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar cambios'}</button></div>
+          </form>
+        </section>
+      </div>}
+    </section>
   );
 }
 
-// =========================================
-// COMPONENTE CARD
-// =========================================
-function Card({ titulo, valor, color }) {
-  return (
-    <div style={{ backgroundColor: "white", borderLeft: `6px solid ${color}`, padding: "20px", borderRadius: "10px" }}>
-      <div style={{ color: "#666", marginBottom: "10px" }}>{titulo}</div>
-      <div style={{ fontSize: "2rem", fontWeight: "bold" }}>{valor}</div>
-    </div>
-  );
+function SummaryCard({ label, value, detail, tone }) {
+  return <article className={`agenda-summary-card tone-${tone}`}><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
 }
-
-// =========================================
-// ESTILOS
-// =========================================
-const thStyle = { padding: "15px", textAlign: "left" };
-const tdStyle = { padding: "15px" };
-
-const badgeStyle = estado => ({
-  backgroundColor: estado === "ATENDIDO" ? "#198754" : estado === "AUSENTE" ? "#dc3545" : estado === "CANCELADO" ? "#6c757d" : "#0d6efd",
-  color: "white", padding: "5px 10px", borderRadius: "20px", fontSize: "0.8rem", fontWeight: "bold"
-});
-
-const btn = bg => ({
-  backgroundColor: bg, color: "white", border: "none", padding: "6px 10px", borderRadius: "6px", cursor: "pointer", fontSize: "0.8rem"
-});
-
-// Estilos para el Modal
-const modalOverlayStyle = {
-  position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-  backgroundColor: "rgba(0, 0, 0, 0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000
-};
-
-const modalContentStyle = {
-  backgroundColor: "white", padding: "30px", borderRadius: "10px", width: "400px", maxWidth: "90%"
-};
-
-const inputStyle = {
-  width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ccc", boxSizing: "border-box"
-};

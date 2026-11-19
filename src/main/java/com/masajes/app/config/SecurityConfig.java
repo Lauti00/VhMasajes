@@ -84,6 +84,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers("/api/auth/**").authenticated()
 
+                        // Las reservas de pacientes usan un enlace de gestión aleatorio en vez de una cuenta.
+                        .requestMatchers(HttpMethod.POST, "/api/reservas").permitAll()
+                        .requestMatchers("/api/reservas/gestion", "/api/reservas/gestion/**").permitAll()
+
                         // 🔓 PUBLICO GET
                         .requestMatchers(HttpMethod.GET, "/api/servicios/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/turnos/disponibilidad/**").permitAll()

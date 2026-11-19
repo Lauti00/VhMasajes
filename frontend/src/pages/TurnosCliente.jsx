@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import API_URL from "../config/api";
 import { useAuth } from "../context/useAuth";
+import { parseLocalDateTime } from '../utils/localDateTime';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
@@ -69,10 +70,10 @@ export default function TurnosCliente() {
 
             const eventos = data.map(t => ({
                 id: t.id,
-                title: t.servicioNombre || "Turno",
-                start: new Date(t.fecha),
-                end: new Date(
-                    new Date(t.fecha).getTime() + (t.duracionMinutos || 60) * 60 * 1000
+                title: t.servicio || "Turno",
+                start: parseLocalDateTime(t.fecha),
+                end: parseLocalDateTime(t.fin) || new Date(
+                    parseLocalDateTime(t.fecha).getTime() + (t.duracionMinutos || 60) * 60 * 1000
                 )
             }));
 

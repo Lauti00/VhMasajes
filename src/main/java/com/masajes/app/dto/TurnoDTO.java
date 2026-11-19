@@ -19,6 +19,7 @@ public class TurnoDTO {
     private Long id;
     private String cliente;
     private String servicio;
+    private Long servicioId;
     private LocalDateTime fecha;
     private LocalDateTime fin;
     private String estado;

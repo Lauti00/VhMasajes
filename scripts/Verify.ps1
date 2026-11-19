@@ -3,6 +3,13 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $frontendRoot = Join-Path $repoRoot 'frontend'
 $script:checks = [System.Collections.Generic.List[object]]::new()
 
+try {
+    Add-Type -AssemblyName System.Net.Http -ErrorAction Stop
+} catch {
+    Write-Error "No se pudo cargar System.Net.Http para los smoke checks: $($_.Exception.Message)"
+    exit 1
+}
+
 function Add-Check {
     param([string]$Name, [bool]$Passed, [string]$Details = '')
     $script:checks.Add([pscustomobject]@{ Name = $Name; Passed = $Passed; Details = $Details })

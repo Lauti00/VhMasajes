@@ -10,7 +10,8 @@ import java.time.LocalDateTime;
 @Table(name = "turnos", indexes = {
     @Index(name = "idx_fecha", columnList = "fecha"),
     @Index(name = "idx_usuario", columnList = "usuario_id"),
-    @Index(name = "idx_estado", columnList = "estado")
+    @Index(name = "idx_estado", columnList = "estado"),
+    @Index(name = "idx_turno_token_gestion", columnList = "token_gestion_hash", unique = true)
 })
 public class Turno {
 
@@ -39,8 +40,11 @@ public class Turno {
 
     // 🔴 CAMBIO IMPORTANTE (antes era LAZY)
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "usuario_id", nullable = false)
+    @JoinColumn(name = "usuario_id", nullable = true)
     private User usuario;
+
+    @Column(name = "token_gestion_hash", length = 64)
+    private String tokenGestionHash;
 
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt;
@@ -70,6 +74,9 @@ public class Turno {
 
     public User getUsuario() { return usuario; }
     public void setUsuario(User usuario) { this.usuario = usuario; }
+
+    public String getTokenGestionHash() { return tokenGestionHash; }
+    public void setTokenGestionHash(String tokenGestionHash) { this.tokenGestionHash = tokenGestionHash; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
