@@ -16,6 +16,8 @@ export default function ReservaPublica() {
   const [notas, setNotas] = useState('');
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [aceptaWhatsapp, setAceptaWhatsapp] = useState(false);
   const [confirmacion, setConfirmacion] = useState(null);
   const [mensajeCopia, setMensajeCopia] = useState('');
   const [cargando, setCargando] = useState(true);
@@ -70,7 +72,8 @@ export default function ReservaPublica() {
   const confirmar = async () => {
     setError('');
     if (!servicioId || !fecha || !hora) { setError('Elegí un servicio, un día y un horario.'); return; }
-    if (!isAuthenticated && (!nombre.trim() || !apellido.trim())) { setError('Completá tu nombre y apellido para reservar.'); return; }
+    if (!isAuthenticated && (!nombre.trim() || !apellido.trim() || !telefono.trim())) { setError('Completá tu nombre, apellido y número de WhatsApp para reservar.'); return; }
+    if (!isAuthenticated && !aceptaWhatsapp) { setError('Aceptá recibir la confirmación de tu turno por WhatsApp para continuar.'); return; }
 
     setGuardando(true);
     try {
@@ -84,12 +87,12 @@ export default function ReservaPublica() {
           servicioId: Number(servicioId),
           notas,
           ...(isAuthenticated ? { cliente: user?.nombre || 'Paciente' } : {}),
-          ...(esReservaSinCuenta ? { nombre: nombre.trim(), apellido: apellido.trim() } : {})
+          ...(esReservaSinCuenta ? { nombre: nombre.trim(), apellido: apellido.trim(), telefono: telefono.trim(), aceptaWhatsapp } : {})
         })
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.message || 'Ese horario ya no está disponible. Elegí otro.');
-      setConfirmacion({ turno: esReservaSinCuenta ? body.turno : body, tokenGestion: esReservaSinCuenta ? body.tokenGestion : '' });
+      setConfirmacion({ turno: esReservaSinCuenta ? body.turno : body, tokenGestion: esReservaSinCuenta ? body.tokenGestion : '', whatsappEnviado: esReservaSinCuenta && body.whatsappEnviado === true });
     } catch (err) {
       setError(err.message || 'No se pudo confirmar el turno.');
       if (fecha && servicioId) {
@@ -109,6 +112,8 @@ export default function ReservaPublica() {
     setNotas('');
     setNombre('');
     setApellido('');
+    setTelefono('');
+    setAceptaWhatsapp(false);
     setError('');
     setMensajeCopia('');
   };
@@ -116,7 +121,6 @@ export default function ReservaPublica() {
   if (cargando) return <main className="booking-shell"><p className="booking-muted">Cargando opciones…</p></main>;
 
   if (confirmacion) {
-    const compartirTexto = `Reservé ${servicioConfirmado || 'un turno'} para el ${formatLocalDate(`${fechaDiaConfirmada}T12:00:00`)} a las ${horaConfirmada} en VH Masajes. Mi enlace privado para gestionar el turno: ${enlaceGestion}`;
     const copiarEnlaceGestion = async () => {
       try {
         await navigator.clipboard.writeText(enlaceGestion);
@@ -137,10 +141,10 @@ export default function ReservaPublica() {
           <div><span className="booking-calendar-kicker">PARA QUE NO TE LO OLVIDES</span><strong>Agregá el turno a tu calendario</strong><p>Descargá el evento y abrilo en el calendario de tu celular. Incluye recordatorios 24 horas y 2 horas antes.</p></div>
           <button className="booking-calendar-button" type="button" onClick={() => downloadTurnoCalendarEvent({ fecha: fechaConfirmada, servicio: servicioConfirmado, duracionMinutos: servicio?.duracionMinutos || 60 })}>Agregar a mi calendario</button>
         </div>
-        {tokenGestion ? <div className="booking-private-link"><strong>También guardá tu enlace privado</strong><p>Con este enlace podés consultar, cambiar o cancelar el turno. Cualquiera que lo tenga podrá gestionarlo; conserválo en un lugar privado.</p>
-          <button className="booking-submit" type="button" onClick={copiarEnlaceGestion}>Copiar enlace de gestión</button>
+        {confirmacion.whatsappEnviado && <div className="booking-whatsapp-status" role="status"><strong>Te enviamos los datos de tu turno por WhatsApp</strong><span>El mensaje incluye el servicio, el día, el horario y un botón para gestionar la reserva.</span></div>}
+        {tokenGestion && !confirmacion.whatsappEnviado ? <div className="booking-private-link"><strong>No pudimos enviar el WhatsApp</strong><p>El turno sí quedó reservado. Copiá este enlace para consultar, reprogramar o cancelar tu turno.</p>
+          <button className="booking-submit" type="button" onClick={copiarEnlaceGestion}>Copiar enlace para administrar mi turno</button>
           {mensajeCopia && <p className="booking-copy-feedback" role="status">{mensajeCopia}</p>}
-          <a className="booking-whatsapp" href={`https://wa.me/?text=${encodeURIComponent(compartirTexto)}`} target="_blank" rel="noreferrer">Compartir enlace por WhatsApp</a>
         </div> : <p className="booking-footnote">Podés consultar tu turno desde tu cuenta cuando vuelvas a ingresar.</p>}
         <Link className="booking-new-link" to="/reservar" onClick={iniciarNuevaReserva}>Volver a los servicios</Link>
       </section>
@@ -190,6 +194,10 @@ export default function ReservaPublica() {
               <input id="nombre" className="booking-input" type="text" autoComplete="given-name" maxLength={60} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Tu nombre" required />
               <label className="booking-label" htmlFor="apellido">Apellido</label>
               <input id="apellido" className="booking-input" type="text" autoComplete="family-name" maxLength={60} value={apellido} onChange={e => setApellido(e.target.value)} placeholder="Tu apellido" required />
+              <label className="booking-label" htmlFor="telefono">Número de WhatsApp</label>
+              <input id="telefono" className="booking-input" type="tel" inputMode="tel" autoComplete="tel" aria-describedby="telefono-ayuda" maxLength={25} value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+54 9 11 1234-5678" required />
+              <span id="telefono-ayuda" className="booking-input-hint">Incluí el código de país para recibir la confirmación.</span>
+              <label className="booking-whatsapp-consent"><input type="checkbox" checked={aceptaWhatsapp} onChange={e => setAceptaWhatsapp(e.target.checked)} required /><span>Acepto recibir de VH Masajes por WhatsApp la confirmación de este turno y el enlace para gestionarlo.</span></label>
             </div>}
 
             <label className="booking-label" htmlFor="notas">¿Querés contarnos algo? <span>(opcional)</span></label>
@@ -202,7 +210,7 @@ export default function ReservaPublica() {
             <button className="booking-submit" type="button" onClick={confirmar} disabled={!fecha || !hora || guardando}>
               {guardando ? 'Confirmando…' : 'Confirmar reserva'}
             </button>
-            {!isAuthenticated && <p className="booking-footnote">No necesitás crear una cuenta. Al confirmar se genera un enlace privado para administrar tu turno.</p>}
+            {!isAuthenticated && <p className="booking-footnote">No necesitás crear una cuenta. Te enviaremos por WhatsApp la confirmación y el acceso para modificar o cancelar tu turno.</p>}
           </>
         )}
       </section>

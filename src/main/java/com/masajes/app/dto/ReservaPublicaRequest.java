@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.AssertTrue;
 
 import java.time.LocalDateTime;
 
@@ -15,6 +17,14 @@ public record ReservaPublicaRequest(
         @NotBlank(message = "El apellido es obligatorio")
         @Size(max = 60, message = "El apellido no puede superar 60 caracteres")
         String apellido,
+
+        @NotBlank(message = "El número de WhatsApp es obligatorio")
+        @Size(max = 25, message = "El número de WhatsApp es demasiado largo")
+        @Pattern(regexp = "^\\+?[0-9\\s().-]{8,25}$", message = "Ingresá un número válido con código de país")
+        String telefono,
+
+        @AssertTrue(message = "Aceptá recibir la confirmación por WhatsApp para continuar")
+        boolean aceptaWhatsapp,
 
         @NotNull(message = "Elegí un servicio")
         Long servicioId,

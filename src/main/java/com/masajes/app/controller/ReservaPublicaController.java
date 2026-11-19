@@ -7,6 +7,7 @@ import com.masajes.app.dto.TurnoDTO;
 import com.masajes.app.mapper.TurnoMapper;
 import com.masajes.app.model.Turno;
 import com.masajes.app.service.ReservaPublicaService;
+import com.masajes.app.service.WhatsappConfirmationService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -28,17 +29,20 @@ import java.time.LocalDate;
 public class ReservaPublicaController {
     private final ReservaPublicaService reservaService;
     private final TurnoMapper turnoMapper;
+    private final WhatsappConfirmationService whatsappService;
 
-    public ReservaPublicaController(ReservaPublicaService reservaService, TurnoMapper turnoMapper) {
+    public ReservaPublicaController(ReservaPublicaService reservaService, TurnoMapper turnoMapper, WhatsappConfirmationService whatsappService) {
         this.reservaService = reservaService;
         this.turnoMapper = turnoMapper;
+        this.whatsappService = whatsappService;
     }
 
     @PostMapping
     public ResponseEntity<ReservaPublicaCreada> crear(@Valid @RequestBody ReservaPublicaRequest request) {
         ReservaPublicaService.ReservaCreada creada = reservaService.crear(request);
+        boolean whatsappEnviado = whatsappService.enviarConfirmacion(request, creada.turno().getServicio(), creada.turno().getFecha(), creada.token());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new ReservaPublicaCreada(turnoMapper.toDTO(creada.turno()), creada.token()));
+                .body(new ReservaPublicaCreada(turnoMapper.toDTO(creada.turno()), creada.token(), whatsappEnviado));
     }
 
     @GetMapping("/gestion")
