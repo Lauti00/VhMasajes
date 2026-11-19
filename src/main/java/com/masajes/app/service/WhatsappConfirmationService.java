@@ -32,8 +32,8 @@ public class WhatsappConfirmationService {
     @Value("${whatsapp.template-language:es_AR}") private String templateLanguage;
     @Value("${app.public-url:http://localhost:5173}") private String publicUrl;
 
-    public WhatsappConfirmationService(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    public WhatsappConfirmationService() {
+        this.objectMapper = new ObjectMapper();
         this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
     }
 
