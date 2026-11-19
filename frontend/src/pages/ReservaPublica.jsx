@@ -102,6 +102,17 @@ export default function ReservaPublica() {
     }
   };
 
+  const iniciarNuevaReserva = () => {
+    setConfirmacion(null);
+    setFecha('');
+    setHora('');
+    setNotas('');
+    setNombre('');
+    setApellido('');
+    setError('');
+    setMensajeCopia('');
+  };
+
   if (cargando) return <main className="booking-shell"><p className="booking-muted">Cargando opciones…</p></main>;
 
   if (confirmacion) {
@@ -131,7 +142,7 @@ export default function ReservaPublica() {
           {mensajeCopia && <p className="booking-copy-feedback" role="status">{mensajeCopia}</p>}
           <a className="booking-whatsapp" href={`https://wa.me/?text=${encodeURIComponent(compartirTexto)}`} target="_blank" rel="noreferrer">Compartir enlace por WhatsApp</a>
         </div> : <p className="booking-footnote">Podés consultar tu turno desde tu cuenta cuando vuelvas a ingresar.</p>}
-        <Link className="booking-new-link" to="/reservar">Volver a los servicios</Link>
+        <Link className="booking-new-link" to="/reservar" onClick={iniciarNuevaReserva}>Volver a los servicios</Link>
       </section>
       <footer className="booking-footer">VH Masajes · Atención personalizada</footer>
     </main>;
