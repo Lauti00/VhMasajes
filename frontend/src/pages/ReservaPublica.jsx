@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import API_URL from '../config/api';
 import { useAuth } from '../context/useAuth';
 import './ReservaPublica.css';
-import { businessDateISO, formatLocalDate } from '../utils/localDateTime';
+import { businessDateISO, formatLocalDate, formatLocalTime, localDateTimeInput } from '../utils/localDateTime';
+import { downloadTurnoCalendarEvent } from '../utils/calendarEvent';
 
 export default function ReservaPublica() {
   const { isAuthenticated, user } = useAuth();
-  const navigate = useNavigate();
   const [servicios, setServicios] = useState([]);
   const [servicioId, setServicioId] = useState('');
   const [fecha, setFecha] = useState('');
@@ -16,13 +16,21 @@ export default function ReservaPublica() {
   const [notas, setNotas] = useState('');
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
-  const [tokenGestion, setTokenGestion] = useState('');
+  const [confirmacion, setConfirmacion] = useState(null);
+  const [mensajeCopia, setMensajeCopia] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
   const servicio = useMemo(() => servicios.find(s => String(s.id) === servicioId), [servicios, servicioId]);
+  const tokenGestion = confirmacion?.tokenGestion || '';
   const enlaceGestion = tokenGestion ? `${window.location.origin}/gestionar-turno#${tokenGestion}` : '';
+  const turnoConfirmado = confirmacion?.turno;
+  const fechaConfirmada = localDateTimeInput(turnoConfirmado?.fecha) || `${fecha}T${hora}:00`;
+  const fechaDiaConfirmada = fechaConfirmada.slice(0, 10);
+  const horaConfirmada = formatLocalTime(fechaConfirmada) || hora.slice(0, 5);
+  const servicioConfirmado = turnoConfirmado?.servicio || servicio?.nombre;
+  const precioConfirmado = turnoConfirmado?.precio ?? servicio?.precio ?? 0;
 
   useEffect(() => {
     const pendiente = sessionStorage.getItem('reservaPendiente');
@@ -81,11 +89,7 @@ export default function ReservaPublica() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.message || 'Ese horario ya no está disponible. Elegí otro.');
-      if (esReservaSinCuenta) {
-        setTokenGestion(body.tokenGestion);
-      } else {
-        navigate('/', { state: { reservaConfirmada: true } });
-      }
+      setConfirmacion({ turno: esReservaSinCuenta ? body.turno : body, tokenGestion: esReservaSinCuenta ? body.tokenGestion : '' });
     } catch (err) {
       setError(err.message || 'No se pudo confirmar el turno.');
       if (fecha && servicioId) {
@@ -100,8 +104,16 @@ export default function ReservaPublica() {
 
   if (cargando) return <main className="booking-shell"><p className="booking-muted">Cargando opciones…</p></main>;
 
-  if (tokenGestion) {
-    const compartirTexto = `Reservé ${servicio?.nombre || 'un turno'} para el ${formatLocalDate(`${fecha}T12:00:00`)} a las ${hora.slice(0, 5)} en VH Masajes. Mi enlace privado para gestionar el turno: ${enlaceGestion}`;
+  if (confirmacion) {
+    const compartirTexto = `Reservé ${servicioConfirmado || 'un turno'} para el ${formatLocalDate(`${fechaDiaConfirmada}T12:00:00`)} a las ${horaConfirmada} en VH Masajes. Mi enlace privado para gestionar el turno: ${enlaceGestion}`;
+    const copiarEnlaceGestion = async () => {
+      try {
+        await navigator.clipboard.writeText(enlaceGestion);
+        setMensajeCopia('Enlace privado copiado.');
+      } catch {
+        window.prompt('Copiá y guardá tu enlace privado:', enlaceGestion);
+      }
+    };
     return <main className="booking-shell">
       <header className="booking-header"><Link className="booking-brand" to="/reservar">VH <span>masajes</span></Link></header>
       <section className="booking-card booking-confirmation" aria-labelledby="booking-confirmed-title">
@@ -109,12 +121,16 @@ export default function ReservaPublica() {
         <p className="booking-eyebrow">VH MASAJES</p>
         <h1 id="booking-confirmed-title">Tu turno quedó reservado</h1>
         <p>Te esperamos para disfrutar de tu momento de bienestar.</p>
-        <div className="booking-summary booking-confirmation-summary"><span>{servicio?.nombre} · {formatLocalDate(`${fecha}T12:00:00`)} · {hora.slice(0, 5)}</span><strong>${Number(servicio?.precio || 0).toLocaleString('es-AR')}</strong></div>
-        <div className="booking-private-link"><strong>Guardá tu enlace privado</strong><p>Con este enlace podés consultar, cambiar o cancelar tu turno. Cualquiera que tenga el enlace podrá gestionarlo, así que conserválo en un lugar privado.</p>
-          <button className="booking-submit" type="button" onClick={() => navigator.clipboard.writeText(enlaceGestion).then(() => setError('Enlace privado copiado.')).catch(() => window.prompt('Copiá tu enlace privado:', enlaceGestion))}>Copiar enlace de gestión</button>
-          {error && <p className="booking-copy-feedback" role="status">{error}</p>}
-          <a className="booking-whatsapp" href={`https://wa.me/?text=${encodeURIComponent(compartirTexto)}`} target="_blank" rel="noreferrer">Guardarlo en WhatsApp</a>
+        <div className="booking-summary booking-confirmation-summary"><span>{servicioConfirmado} · {formatLocalDate(`${fechaDiaConfirmada}T12:00:00`)} · {horaConfirmada}</span><strong>${Number(precioConfirmado).toLocaleString('es-AR')}</strong></div>
+        <div className="booking-calendar-card">
+          <div><span className="booking-calendar-kicker">PARA QUE NO TE LO OLVIDES</span><strong>Agregá el turno a tu calendario</strong><p>Descargá el evento y abrilo en el calendario de tu celular. Incluye recordatorios 24 horas y 2 horas antes.</p></div>
+          <button className="booking-calendar-button" type="button" onClick={() => downloadTurnoCalendarEvent({ fecha: fechaConfirmada, servicio: servicioConfirmado, duracionMinutos: servicio?.duracionMinutos || 60 })}>Agregar a mi calendario</button>
         </div>
+        {tokenGestion ? <div className="booking-private-link"><strong>También guardá tu enlace privado</strong><p>Con este enlace podés consultar, cambiar o cancelar el turno. Cualquiera que lo tenga podrá gestionarlo; conserválo en un lugar privado.</p>
+          <button className="booking-submit" type="button" onClick={copiarEnlaceGestion}>Copiar enlace de gestión</button>
+          {mensajeCopia && <p className="booking-copy-feedback" role="status">{mensajeCopia}</p>}
+          <a className="booking-whatsapp" href={`https://wa.me/?text=${encodeURIComponent(compartirTexto)}`} target="_blank" rel="noreferrer">Compartir enlace por WhatsApp</a>
+        </div> : <p className="booking-footnote">Podés consultar tu turno desde tu cuenta cuando vuelvas a ingresar.</p>}
         <Link className="booking-new-link" to="/reservar">Volver a los servicios</Link>
       </section>
       <footer className="booking-footer">VH Masajes · Atención personalizada</footer>
