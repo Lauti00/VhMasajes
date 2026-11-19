@@ -1,23 +1,28 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 
 // 🚀 ACÁ ESTABA EL ERROR: Ahora sí importamos el archivo correcto
-import TurnosPage from './pages/TurnosPage'; 
+const TurnosPage = lazy(() => import('./pages/TurnosPage'));
 
-import AgendarTurno from './pages/AgendarTurno';
-import AdminDashboard from './pages/AdminDashboard'; 
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const ReservaPublica = lazy(() => import('./pages/ReservaPublica'));
+const CambiarPassword = lazy(() => import('./pages/CambiarPassword'));
 import './App.css';
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <Suspense fallback={<div style={{ padding: 32, textAlign: 'center' }}>Cargando…</div>}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/reservar" element={<ReservaPublica />} />
+          <Route path="/cuenta/clave" element={<ProtectedRoute><CambiarPassword /></ProtectedRoute>} />
           
           {/* Ruta principal: Ahora TurnosPage recibe al usuario y decide si le muestra la vista de Admin o de Cliente */}
           <Route
@@ -32,11 +37,7 @@ function App() {
           {/* Ruta para agendar un turno nuevo */}
           <Route
             path="/agendar"
-            element={
-              <ProtectedRoute>
-                <AgendarTurno />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/reservar" replace />}
           />
 
           {/* Panel exclusivo del Administrador (por si querés entrar escribiendo /admin en la URL) */}
@@ -52,6 +53,7 @@ function App() {
           {/* Si el usuario escribe cualquier cosa rara en la URL, lo mandamos al inicio */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -20,7 +20,7 @@ public class ServiceController {
     // 🔓 Público: Cualquier usuario logueado puede ver la lista de servicios para pedir un turno
     @GetMapping
     public List<Service> listarServicios() {
-        return serviceRepository.findAll();
+        return serviceRepository.findByActivoTrueOrActivoIsNullOrderByNombreAsc();
     }
 
     // 🔒 Privado: Solo el ADMIN puede crear nuevos servicios (ej: Masaje de Piedras Calientes)
@@ -50,7 +50,10 @@ public class ServiceController {
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarServicio(@PathVariable Long id) {
-        serviceRepository.deleteById(id);
+        Service servicio = serviceRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Servicio no encontrado"));
+        servicio.setActivo(false);
+        serviceRepository.save(servicio);
         return ResponseEntity.noContent().build();
     }
 }

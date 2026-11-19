@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import './AuthPage.css';
 
+const destinoSeguro = destino => destino?.startsWith('/') && !destino.startsWith('//') ? destino : '/';
+
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { register, loading, error } = useAuth();
   const [formData, setFormData] = useState({
     nombre: '',
@@ -37,8 +41,8 @@ export default function RegisterPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setLocalError('La contraseña debe tener al menos 6 caracteres');
+    if (formData.password.length < 12) {
+      setLocalError('La contraseña debe tener al menos 12 caracteres');
       return;
     }
 
@@ -50,7 +54,7 @@ export default function RegisterPage() {
         formData.passwordConfirm,
         formData.telefono
       );
-      navigate('/');
+      navigate(destinoSeguro(searchParams.get('next')));
     } catch (err) {
       setLocalError(err.message || 'Error al registrarse');
     }
@@ -102,6 +106,8 @@ export default function RegisterPage() {
               onChange={handleChange}
               placeholder="••••••••"
               disabled={loading}
+              minLength={12}
+              maxLength={72}
             />
           </div>
 
@@ -135,7 +141,7 @@ export default function RegisterPage() {
         </form>
 
         <p className="auth-link">
-          ¿Ya tienes cuenta? <a href="/login">Iniciar Sesión</a>
+          ¿Ya tienes cuenta? <a href={searchParams.get('next') ? `/login?next=${encodeURIComponent(searchParams.get('next'))}` : '/login'}>Iniciar Sesión</a>
         </p>
       </div>
     </div>

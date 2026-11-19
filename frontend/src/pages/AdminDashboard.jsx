@@ -14,6 +14,7 @@ export default function AdminDashboard() {
   const [turnos, setTurnos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [linkCopiado, setLinkCopiado] = useState(false);
 
   // ESTADOS PARA EL MODAL DE EDICIÓN
   const [showModal, setShowModal] = useState(false);
@@ -164,6 +165,17 @@ export default function AdminDashboard() {
     link.click();
   };
 
+  const copiarLinkReserva = async () => {
+    const link = `${window.location.origin}/reservar`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setLinkCopiado(true);
+      window.setTimeout(() => setLinkCopiado(false), 2500);
+    } catch {
+      window.prompt("Copiá este link para compartirlo con tus pacientes:", link);
+    }
+  };
+
   if (loading) {
     return <div style={{ padding: "40px", textAlign: "center" }}>⏳ Cargando panel...</div>;
   }
@@ -179,9 +191,14 @@ export default function AdminDashboard() {
       {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "30px" }}>
         <h1>Panel de Administración</h1>
-        <button onClick={exportarExcel} style={{ backgroundColor: "#198754", color: "white", border: "none", padding: "10px 20px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>
-          📥 Descargar CSV
-        </button>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button onClick={copiarLinkReserva} style={{ backgroundColor: "#405b48", color: "white", border: "none", padding: "10px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>
+            {linkCopiado ? "✓ Link copiado" : "🔗 Copiar link para reservar"}
+          </button>
+          <button onClick={exportarExcel} style={{ backgroundColor: "#198754", color: "white", border: "none", padding: "10px 20px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>
+            📥 Descargar CSV
+          </button>
+        </div>
       </div>
 
       {/* STATS */}

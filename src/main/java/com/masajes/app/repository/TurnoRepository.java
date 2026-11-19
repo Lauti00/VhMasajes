@@ -65,17 +65,15 @@ public interface TurnoRepository extends JpaRepository<Turno, Long> {
     // GANANCIAS POR MES
     // =========================================
 
-    @Query(value = """
-        SELECT 
-            EXTRACT(MONTH FROM t.fecha) AS numero_mes,
-            TRIM(TO_CHAR(t.fecha, 'Month')) AS mes,
-            SUM(t.precio_cobrado) AS total
-        FROM turnos t
-        WHERE t.estado = 'ATENDIDO'
-        GROUP BY numero_mes, mes
-        ORDER BY numero_mes
-    """, nativeQuery = true)
-    List<Object[]> obtenerGananciasPorMes();
+    @Query("""
+        SELECT MONTH(t.fecha), SUM(t.precioCobrado)
+        FROM Turno t
+        WHERE YEAR(t.fecha) = :anio
+          AND t.estado = com.masajes.app.model.EstadoTurno.ATENDIDO
+        GROUP BY MONTH(t.fecha)
+        ORDER BY MONTH(t.fecha)
+    """)
+    List<Object[]> obtenerGananciasPorMes(@Param("anio") int anio);
 
     // =========================================
     // POPULARIDAD DE SERVICIOS
@@ -85,6 +83,7 @@ public interface TurnoRepository extends JpaRepository<Turno, Long> {
         SELECT s.nombre, COUNT(t)
         FROM Turno t
         JOIN t.servicio s
+        WHERE t.estado <> com.masajes.app.model.EstadoTurno.CANCELADO
         GROUP BY s.nombre
     """)
     List<Object[]> obtenerPopularidadServicios();

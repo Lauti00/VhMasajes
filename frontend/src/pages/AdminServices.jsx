@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../../context/useAuth";
+import { useAuth } from "../context/useAuth";
+import API_URL from "../config/api";
 import "./AdminServicios.css"; 
 
 export default function AdminServicios() {
@@ -17,7 +18,7 @@ export default function AdminServicios() {
   const cargarServicios = useCallback(async () => {
     if (!token) return; // Seguridad: no pedir si no hay token
     try {
-      const res = await fetch("http://localhost:8083/api/servicios", {
+      const res = await fetch(`${API_URL}/api/servicios`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       
@@ -50,7 +51,7 @@ export default function AdminServicios() {
       // 🚨 Validación básica antes de enviar
       if (nuevoServicio.precio <= 0) throw new Error("El precio debe ser mayor a 0");
 
-      const res = await fetch("http://localhost:8083/api/servicios", {
+      const res = await fetch(`${API_URL}/api/servicios`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -82,7 +83,7 @@ export default function AdminServicios() {
     if (!window.confirm("¿Seguro que querés eliminar este servicio?")) return;
     
     try {
-      const res = await fetch(`http://localhost:8083/api/servicios/${id}`, {
+      const res = await fetch(`${API_URL}/api/servicios/${id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -122,6 +123,13 @@ export default function AdminServicios() {
             value={nuevoServicio.nombre} 
             onChange={e => setNuevoServicio({...nuevoServicio, nombre: e.target.value})}
             required 
+          />
+          <textarea
+            placeholder="Descripción del servicio (opcional)"
+            className="input-field"
+            value={nuevoServicio.descripcion}
+            onChange={e => setNuevoServicio({ ...nuevoServicio, descripcion: e.target.value })}
+            rows={3}
           />
           <input 
             type="number" placeholder="Precio ($)" 

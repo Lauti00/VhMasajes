@@ -19,11 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Duration;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.time.Clock;
 
 @Service
 public class TurnoClienteService {
@@ -37,6 +39,9 @@ public class TurnoClienteService {
     @Autowired
     private ServiceRepository serviceRepository;
 
+    @Autowired
+    private Clock businessClock;
+
     // =========================================
     // OBTENER MIS TURNOS
     // =========================================
@@ -49,56 +54,44 @@ public class TurnoClienteService {
     // OBTENER HORARIOS DISPONIBLES
     // =========================================
 
-    public List<String> getHorasDisponibles(LocalDate fecha) {
+    public List<String> getHorasDisponibles(LocalDate fecha, Long servicioId) {
+        com.masajes.app.model.Service servicio = serviceRepository.findById(servicioId)
+                .filter(s -> !Boolean.FALSE.equals(s.getActivo()))
+                .orElseThrow(() -> new ResourceNotFoundException("Servicio no encontrado."));
 
-    int diaSemana = fecha.getDayOfWeek().getValue();
+        Optional<HorarioAtencion> configOpt = horarioRepository.findByDiaSemana(fecha.getDayOfWeek().getValue());
+        if (configOpt.isEmpty() || !configOpt.get().isLaborable()) return new ArrayList<>();
 
-    Optional<HorarioAtencion> configOpt =
-            horarioRepository.findByDiaSemana(diaSemana);
+        HorarioAtencion config = configOpt.get();
+        LocalTime apertura = config.getHoraApertura();
+        LocalTime cierre = config.getHoraCierre();
+        if (apertura == null || cierre == null || !apertura.isBefore(cierre)) return new ArrayList<>();
 
-    // SI NO EXISTE CONFIGURACIÓN -> NO HAY ATENCIÓN
-    if (configOpt.isEmpty()) {
-        return new ArrayList<>();
+        LocalDateTime inicioDia = fecha.atStartOfDay();
+        LocalDateTime finDia = fecha.atTime(LocalTime.MAX);
+        List<Turno> ocupados = turnoRepository.findByFechaBetween(inicioDia, finDia).stream()
+                .filter(t -> t.getEstado() != EstadoTurno.CANCELADO)
+                .collect(Collectors.toList());
+
+        List<String> disponibles = new ArrayList<>();
+        int duracion = servicio.getDuracionMinutos();
+        LocalDateTime candidato = fecha.atTime(apertura);
+        LocalDateTime finAtencion = fecha.atTime(cierre);
+        LocalDateTime ahora = LocalDateTime.now(businessClock);
+        while (!candidato.plusMinutes(duracion).isAfter(finAtencion)) {
+            LocalDateTime inicio = candidato;
+            LocalDateTime fin = inicio.plusMinutes(duracion);
+            boolean seSuperpone = ocupados.stream().anyMatch(t -> {
+                LocalDateTime turnoFin = t.getFecha().plusMinutes(
+                        t.getServicio() == null || t.getServicio().getDuracionMinutos() == null
+                                ? 60 : t.getServicio().getDuracionMinutos());
+                return inicio.isBefore(turnoFin) && fin.isAfter(t.getFecha());
+            });
+            if (!inicio.isBefore(ahora) && !seSuperpone) disponibles.add(candidato.toLocalTime().toString());
+            candidato = candidato.plusMinutes(15);
+        }
+        return disponibles;
     }
-
-    HorarioAtencion config = configOpt.get();
-
-    // SI EL DÍA NO ES LABORABLE
-    if (!config.isLaborable()) {
-        return new ArrayList<>();
-    }
-
-    LocalTime apertura = config.getHoraApertura();
-    LocalTime cierre = config.getHoraCierre();
-
-    List<LocalTime> slots = new ArrayList<>();
-
-    LocalTime horaActual = apertura;
-
-    while (horaActual.isBefore(cierre)) {
-
-        slots.add(horaActual);
-
-        horaActual = horaActual.plusMinutes(60);
-    }
-
-    LocalDateTime inicioDia = fecha.atStartOfDay();
-
-    LocalDateTime finDia = fecha.atTime(LocalTime.MAX);
-
-    List<Turno> ocupados =
-            turnoRepository.findByFechaBetween(inicioDia, finDia);
-
-    List<LocalTime> horasOcupadas = ocupados.stream()
-            .filter(t -> t.getEstado() != EstadoTurno.CANCELADO)
-            .map(t -> t.getFecha().toLocalTime())
-            .collect(Collectors.toList());
-
-    return slots.stream()
-            .filter(s -> !horasOcupadas.contains(s))
-            .map(s -> s.toString().substring(0, 5))
-            .collect(Collectors.toList());
-}
 
     // =========================================
     // CREAR RESERVA
@@ -114,7 +107,7 @@ public class TurnoClienteService {
         // VALIDAR FECHA PASADA
         // =========================================
 
-        if (request.getFecha().isBefore(LocalDateTime.now())) {
+        if (request.getFecha().isBefore(LocalDateTime.now(businessClock))) {
 
             throw new TurnoConflictException(
                     "No puedes reservar en una fecha pasada."
@@ -125,30 +118,46 @@ public class TurnoClienteService {
         // VALIDAR DOBLE RESERVA REAL
         // =========================================
 
-        boolean ocupado = turnoRepository.existsByFechaAndEstadoNot(
-                request.getFecha(),
-                EstadoTurno.CANCELADO
-        );
-
-        if (ocupado) {
-
-            throw new TurnoConflictException(
-                    "Ese horario ya fue reservado."
-            );
-        }
-
         // =========================================
         // BUSCAR SERVICIO
         // =========================================
 
         com.masajes.app.model.Service servicio =
                 serviceRepository.findById(request.getServicioId())
+                .filter(s -> !Boolean.FALSE.equals(s.getActivo()))
 
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Servicio no encontrado."
                         )
                 );
+
+        int diaSemana = request.getFecha().getDayOfWeek().getValue();
+        HorarioAtencion horario = horarioRepository.findByDiaSemanaForUpdate(diaSemana)
+                .filter(HorarioAtencion::isLaborable)
+                .orElseThrow(() -> new TurnoConflictException("No hay atención configurada para ese día."));
+        if (horario.getHoraApertura() == null || horario.getHoraCierre() == null
+                || !horario.getHoraApertura().isBefore(horario.getHoraCierre())) {
+            throw new TurnoConflictException("El horario de atención de ese día no es válido.");
+        }
+        LocalTime horaInicio = request.getFecha().toLocalTime();
+        LocalDateTime inicioAtencion = request.getFecha().toLocalDate().atTime(horario.getHoraApertura());
+        LocalDateTime finAtencion = request.getFecha().toLocalDate().atTime(horario.getHoraCierre());
+        LocalDateTime finSolicitado = request.getFecha().plusMinutes(servicio.getDuracionMinutos());
+        if (request.getFecha().isBefore(inicioAtencion) || finSolicitado.isAfter(finAtencion)
+                || horaInicio.getSecond() != 0 || horaInicio.getNano() != 0
+                || Duration.between(horario.getHoraApertura(), horaInicio).toMinutes() % 15 != 0) {
+            throw new TurnoConflictException("El horario no está dentro de la agenda disponible.");
+        }
+        boolean ocupado = turnoRepository.findByFechaBetween(
+                request.getFecha().toLocalDate().atStartOfDay(), request.getFecha().toLocalDate().atTime(LocalTime.MAX)
+        ).stream().filter(t -> t.getEstado() != EstadoTurno.CANCELADO).anyMatch(t -> {
+            int duracionExistente = t.getServicio() == null || t.getServicio().getDuracionMinutos() == null
+                    ? 60 : t.getServicio().getDuracionMinutos();
+            LocalDateTime finExistente = t.getFecha().plusMinutes(duracionExistente);
+            return request.getFecha().isBefore(finExistente) && finSolicitado.isAfter(t.getFecha());
+        });
+        if (ocupado) throw new TurnoConflictException("Ese horario ya no está disponible.");
 
         // =========================================
         // CREAR TURNO
@@ -239,6 +248,6 @@ public class TurnoClienteService {
 
     private boolean requestEsPasado(LocalDateTime fecha) {
 
-        return fecha.isBefore(LocalDateTime.now());
+        return fecha.isBefore(LocalDateTime.now(businessClock));
     }
 }

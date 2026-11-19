@@ -6,9 +6,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 
 @Component
 public class AdminSeeder implements CommandLineRunner {
+
+    @Value("${INITIAL_ADMIN_EMAIL:}")
+    private String adminEmail;
+
+    @Value("${INITIAL_ADMIN_PASSWORD:}")
+    private String adminPassword;
+
+    @Value("${INITIAL_ADMIN_NAME:Administrador}")
+    private String adminName;
 
     @Autowired
     private UserRepository userRepository;
@@ -19,24 +29,23 @@ public class AdminSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
 
-        // Eliminamos el admin viejo si existe
-        userRepository.findByEmail("admin@masajes.com")
-                .ifPresent(userRepository::delete);
+        if (adminEmail.isBlank() && adminPassword.isBlank()) return;
+        if (adminEmail.isBlank() || adminPassword.isBlank()) {
+            throw new IllegalStateException("Configura INITIAL_ADMIN_EMAIL e INITIAL_ADMIN_PASSWORD juntos.");
+        }
+        if (userRepository.existsByEmail(adminEmail)) return;
 
         // Creamos nuevamente el administrador
         User admin = new User();
 
-        admin.setNombre("Administrador Principal");
-        admin.setEmail("admin@masajes.com");
-        admin.setPassword(passwordEncoder.encode("Admin123!"));
-        admin.setTelefono("1122334455");
+        admin.setNombre(adminName);
+        admin.setEmail(adminEmail);
+        admin.setPassword(passwordEncoder.encode(adminPassword));
         admin.setRol(User.Role.ADMIN);
         admin.setActivo(true);
 
         userRepository.save(admin);
 
-        System.out.println("✅ ADMIN RECREADO CORRECTAMENTE");
-        System.out.println("📧 Correo: admin@masajes.com");
-        System.out.println("🔑 Contraseña: Admin123!");
+        System.out.println("Administrador inicial creado.");
     }
 }

@@ -12,6 +12,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,5 +93,20 @@ public class AuthService {
             logger.error("Error en login: {}", e.getMessage());
             throw new UnauthorizedException("Email o contraseña incorrectos");
         }
+    }
+
+    @Transactional
+    public void changePassword(User user, ChangePasswordRequest request) {
+        if (!passwordEncoder.matches(request.getPasswordActual(), user.getPassword())) {
+            throw new UnauthorizedException("La contraseña actual no es correcta.");
+        }
+        if (!request.getPasswordNuevo().equals(request.getPasswordConfirmacion())) {
+            throw new UnauthorizedException("Las contraseñas nuevas no coinciden.");
+        }
+        if (request.getPasswordActual().equals(request.getPasswordNuevo())) {
+            throw new UnauthorizedException("Elegí una contraseña nueva distinta a la actual.");
+        }
+        user.setPassword(passwordEncoder.encode(request.getPasswordNuevo()));
+        userRepository.save(user);
     }
 }

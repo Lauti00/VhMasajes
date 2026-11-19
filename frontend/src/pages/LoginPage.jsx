@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import './AuthPage.css';
 
+const destinoSeguro = destino => destino?.startsWith('/') && !destino.startsWith('//') ? destino : '/';
+
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, loading, error } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,7 +25,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      navigate('/');
+      navigate(destinoSeguro(searchParams.get('next')));
     } catch (err) {
       setLocalError(err.message || 'Error al iniciar sesión');
     }
@@ -68,7 +72,7 @@ export default function LoginPage() {
         </form>
 
         <p className="auth-link">
-          ¿No tienes cuenta? <a href="/register">Registrarse</a>
+          ¿No tienes cuenta? <a href={searchParams.get('next') ? `/register?next=${encodeURIComponent(searchParams.get('next'))}` : '/register'}>Registrarse</a>
         </p>
       </div>
     </div>

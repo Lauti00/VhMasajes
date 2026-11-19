@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/turnos")
 @Tag(name = "Turnos Cliente", description = "Endpoints para que los clientes gestionen sus reservas")
 @SecurityRequirement(name = "bearerAuth")
-@CrossOrigin(origins = "*")
 public class TurnoClienteController {
 
     @Autowired
@@ -60,8 +59,9 @@ public class TurnoClienteController {
 
     @GetMapping("/disponibilidad/{fecha}")
     public ResponseEntity<List<String>> obtenerDisponibilidad(
-        @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
-        List<String> horasLibres = turnoClienteService.getHorasDisponibles(fecha);
+        @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+        @RequestParam Long servicioId) {
+        List<String> horasLibres = turnoClienteService.getHorasDisponibles(fecha, servicioId);
         return ResponseEntity.ok(horasLibres);
     }
 

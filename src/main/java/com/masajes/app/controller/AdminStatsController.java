@@ -15,6 +15,11 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.time.LocalDate;
+import java.time.Month;
+import java.time.format.TextStyle;
+import java.util.Locale;
+import java.time.Clock;
 
 @RestController
 @RequestMapping("/api/admin/stats")
@@ -26,25 +31,34 @@ public class AdminStatsController {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private Clock businessClock;
+
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<DashboardStatsDTO> getDashboardStats() {
+    public ResponseEntity<DashboardStatsDTO> getDashboardStats(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Integer anio) {
         DashboardStatsDTO dto = new DashboardStatsDTO();
+        int anioConsulta = anio == null ? LocalDate.now(businessClock).getYear() : anio;
 
         // 1. KPIs Simples
         dto.setGananciasTotales(turnoRepository.sumarGananciasTotales());
         
-        LocalDateTime inicioHoy = LocalDateTime.now().with(LocalTime.MIN);
-        LocalDateTime finHoy = LocalDateTime.now().with(LocalTime.MAX);
+        LocalDateTime inicioHoy = LocalDate.now(businessClock).atStartOfDay();
+        LocalDateTime finHoy = LocalDate.now(businessClock).atTime(LocalTime.MAX);
         dto.setTurnosHoy(turnoRepository.findByFechaBetween(inicioHoy, finHoy).size());
         
         dto.setTotalClientes(userRepository.count()); // Cuenta todos los usuarios registrados
 
         // 2. Mapear Ganancias Mensuales para Recharts
-        List<Map<String, Object>> gananciasMes = turnoRepository.obtenerGananciasPorMes().stream().map(obj -> {
+        Map<Integer, Double> totalesPorMes = turnoRepository.obtenerGananciasPorMes(anioConsulta).stream().collect(Collectors.toMap(
+            obj -> ((Number) obj[0]).intValue(),
+            obj -> ((Number) obj[1]).doubleValue()
+        ));
+        List<Map<String, Object>> gananciasMes = java.util.Arrays.stream(Month.values()).map(mes -> {
             Map<String, Object> map = new HashMap<>();
-            map.put("name", obj[0]);  // Nombre del mes
-            map.put("total", obj[1]); // Suma
+            map.put("name", mes.getDisplayName(TextStyle.SHORT, Locale.forLanguageTag("es-AR")));
+            map.put("total", totalesPorMes.getOrDefault(mes.getValue(), 0.0));
             return map;
         }).collect(Collectors.toList());
         dto.setGananciasMensuales(gananciasMes);

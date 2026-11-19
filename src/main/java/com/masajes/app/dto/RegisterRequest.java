@@ -23,7 +23,7 @@ public class RegisterRequest {
     private String email;
     
     @NotBlank(message = "La contraseña es requerida")
-    @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
+    @Size(min = 12, max = 72, message = "La contraseña debe tener entre 12 y 72 caracteres")
     private String password;
     
     @NotBlank(message = "La confirmación de contraseña es requerida")

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import API_URL from "../config/api";
 import { useAuth } from "../context/useAuth";
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
@@ -26,18 +27,28 @@ export default function TurnosCliente() {
 
     const { logout, token } = useAuth();
 
-    const [servicioId, setServicioId] = useState(1);
+    const [servicioId, setServicioId] = useState('');
+    const [servicios, setServicios] = useState([]);
     const [fecha, setFecha] = useState('');
-    const [horasLibres, setHorasLibres] = useState([]);
+    const [disponibilidad, setDisponibilidad] = useState({ clave: '', horarios: [] });
     const [horaElegida, setHoraElegida] = useState('');
-    const [cargandoHoras, setCargandoHoras] = useState(false);
+    const claveDisponibilidad = `${fecha}|${servicioId}`;
+    const cargandoHoras = Boolean(fecha && servicioId && disponibilidad.clave !== claveDisponibilidad);
+    const horasLibres = disponibilidad.clave === claveDisponibilidad ? disponibilidad.horarios : [];
     const [misTurnosCalendario, setMisTurnosCalendario] = useState([]);
+
+    useEffect(() => {
+        fetch(`${API_URL}/api/servicios`)
+            .then(res => { if (!res.ok) throw new Error('No se pudieron cargar los servicios'); return res.json(); })
+            .then(data => { setServicios(Array.isArray(data) ? data : []); if (data?.length) setServicioId(String(data[0].id)); })
+            .catch(error => console.error(error));
+    }, []);
 
     // ============================
     // CARGAR TURNOS
     // ============================
 
-    const cargarMisTurnos = () => {
+    const cargarMisTurnos = useCallback(() => {
 
         if (!token) return;
 
@@ -61,7 +72,7 @@ export default function TurnosCliente() {
                 title: t.servicioNombre || "Turno",
                 start: new Date(t.fecha),
                 end: new Date(
-                    new Date(t.fecha).getTime() + 60 * 60 * 1000
+                    new Date(t.fecha).getTime() + (t.duracionMinutos || 60) * 60 * 1000
                 )
             }));
 
@@ -71,11 +82,11 @@ export default function TurnosCliente() {
         .catch(err =>
             console.error("❌ Error cargando calendario:", err)
         );
-    };
+    }, [token]);
 
     useEffect(() => {
         cargarMisTurnos();
-    }, [token]);
+    }, [cargarMisTurnos]);
 
     // ============================
     // DISPONIBILIDAD
@@ -83,16 +94,9 @@ export default function TurnosCliente() {
 
     useEffect(() => {
 
-        if (fecha && token) {
+        if (fecha && servicioId) {
 
-            setHoraElegida('');
-            setCargandoHoras(true);
-
-            fetch(`${API_URL}/api/turnos/disponibilidad/${fecha}`, {
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
-            })
+            fetch(`${API_URL}/api/turnos/disponibilidad/${fecha}?servicioId=${servicioId}`)
             .then(res => {
 
                 if (!res.ok) {
@@ -103,22 +107,17 @@ export default function TurnosCliente() {
             })
             .then(data => {
 
-                setHorasLibres(
-                    Array.isArray(data) ? data : []
-                );
-
-                setCargandoHoras(false);
+                setDisponibilidad({ clave: `${fecha}|${servicioId}`, horarios: Array.isArray(data) ? data : [] });
             })
             .catch(err => {
 
                 console.error(err);
 
-                setHorasLibres([]);
-                setCargandoHoras(false);
+                setDisponibilidad({ clave: `${fecha}|${servicioId}`, horarios: [] });
             });
         }
 
-    }, [fecha, token]);
+    }, [fecha, servicioId]);
 
     // ============================
     // RESERVAR
@@ -157,7 +156,7 @@ export default function TurnosCliente() {
 
                 setFecha('');
                 setHoraElegida('');
-                setHorasLibres([]);
+                setDisponibilidad({ clave: '', horarios: [] });
 
                 cargarMisTurnos();
 
@@ -197,10 +196,10 @@ export default function TurnosCliente() {
                 }}
             >
 
-                <h2 style={{ margin: 0 }}>
-                    💆‍♀️ Mis Reservas
-                </h2>
+                <h2 style={{ margin: 0 }}>💆‍♀️ Mis Reservas</h2>
 
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                <Link to="/cuenta/clave" style={{ color: '#405b48', fontWeight: 600, fontSize: 14 }}>Cambiar contraseña</Link>
                 <button
                     onClick={logout}
                     style={{
@@ -210,6 +209,7 @@ export default function TurnosCliente() {
                 >
                     Cerrar Sesión
                 </button>
+                </div>
 
             </header>
 
@@ -246,17 +246,10 @@ export default function TurnosCliente() {
 
                             <select
                                 value={servicioId}
-                                onChange={e => setServicioId(e.target.value)}
+                                onChange={e => { setServicioId(e.target.value); setHoraElegida(''); }}
                                 style={inputStyle}
                             >
-                                <option value="1">
-                                    Masaje Descontracturante
-                                </option>
-
-                                <option value="2">
-                                    Limpieza Facial
-                                </option>
-
+                                {servicios.map(servicio => <option key={servicio.id} value={servicio.id}>{servicio.nombre} · ${Number(servicio.precio).toLocaleString('es-AR')} · {servicio.duracionMinutos} min</option>)}
                             </select>
 
                         </div>
@@ -271,7 +264,7 @@ export default function TurnosCliente() {
                                 type="date"
                                 value={fecha}
                                 min={new Date().toISOString().split("T")[0]}
-                                onChange={e => setFecha(e.target.value)}
+                                onChange={e => { setFecha(e.target.value); setHoraElegida(''); }}
                                 style={inputStyle}
                                 required
                             />

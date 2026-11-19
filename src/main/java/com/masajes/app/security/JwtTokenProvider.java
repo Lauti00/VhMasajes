@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.nio.charset.StandardCharsets;
+import jakarta.annotation.PostConstruct;
 
 @Component
 public class JwtTokenProvider {
@@ -21,9 +23,16 @@ public class JwtTokenProvider {
     
     @Value("${jwt.expiration}")
     private long jwtExpirationMs;
+
+    @PostConstruct
+    public void validateSecret() {
+        if (jwtSecret == null || jwtSecret.getBytes(StandardCharsets.UTF_8).length < 64) {
+            throw new IllegalStateException("JWT_SECRET debe tener al menos 64 bytes para firmar tokens HS512.");
+        }
+    }
     
     public String generateToken(Authentication authentication) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         
         return Jwts.builder()
             .setSubject(authentication.getName())
@@ -34,7 +43,7 @@ public class JwtTokenProvider {
     }
     
     public String generateTokenFromEmail(String email) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         
         return Jwts.builder()
             .setSubject(email)
@@ -45,7 +54,7 @@ public class JwtTokenProvider {
     }
     
     public String getUserEmailFromToken(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         
         return Jwts.parserBuilder()
             .setSigningKey(key)
@@ -57,7 +66,7 @@ public class JwtTokenProvider {
     
     public boolean validateToken(String token) {
         try {
-            SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+            SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
             Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()

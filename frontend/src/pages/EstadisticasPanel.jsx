@@ -25,6 +25,7 @@ export default function EstadisticasPanel() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [anio, setAnio] = useState(new Date().getFullYear());
 
   useEffect(() => {
 
@@ -35,7 +36,7 @@ export default function EstadisticasPanel() {
         console.log("🔑 Token actual:", token ? "Existe (OK)" : "No existe");
 
         const response = await fetch(
-          `${API_URL}/api/admin/stats/dashboard`,
+          `${API_URL}/api/admin/stats/dashboard?anio=${anio}`,
           {
             method: "GET",
             headers: {
@@ -80,7 +81,7 @@ export default function EstadisticasPanel() {
       cargarEstadisticas();
     }
 
-  }, [token]);
+  }, [token, anio]);
 
   // Loading
   if (loading) {
@@ -150,9 +151,12 @@ export default function EstadisticasPanel() {
       {/* GANANCIAS */}
       <div style={cardStyle}>
 
-        <h3 style={titleStyle}>
-          💰 Ganancias Mensuales
-        </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 15 }}>
+          <h3 style={{ ...titleStyle, margin: 0 }}>💰 Ganancias por mes</h3>
+          <select aria-label="Año del reporte" value={anio} onChange={e => setAnio(Number(e.target.value))} style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid #ddd', background: '#fff' }}>
+            {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map(year => <option key={year} value={year}>{year}</option>)}
+          </select>
+        </div>
 
         <div style={{ width: '100%', height: 300 }}>
 

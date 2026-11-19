@@ -21,11 +21,15 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import org.springframework.beans.factory.annotation.Value;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+
+    @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
+    private String allowedOrigins;
 
     @Autowired
     private UserDetailsService userDetailsService;
@@ -69,13 +73,16 @@ public class SecurityConfig {
                                 "/error",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
+                                "/api-docs",
+                                "/api-docs/**",
                                 "/v3/api-docs/**",
                                 "/webjars/**",
                                 "/h2-console/**"
                         ).permitAll()
 
-                        // 🔓 AUTH
-                        .requestMatchers("/api/auth/**").permitAll()
+                        // El registro y el inicio de sesión son públicos; cambiar la contraseña requiere sesión.
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers("/api/auth/**").authenticated()
 
                         // 🔓 PUBLICO GET
                         .requestMatchers(HttpMethod.GET, "/api/servicios/**").permitAll()
@@ -103,12 +110,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "https://vhmasajes.onrender.com",
-                "https://beamish-moxie-493609.netlify.app" // NUEVO FRONT EN NETLIFY
-        ));
+        configuration.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim).filter(origin -> !origin.isEmpty()).toList());
 
         configuration.setAllowedMethods(Arrays.asList(
                 "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"

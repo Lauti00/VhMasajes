@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/admin/turnos")
 @Tag(name = "Turnos Admin", description = "Endpoints administrativos")
 @SecurityRequirement(name = "bearerAuth")
-@CrossOrigin(origins = "*")
 @PreAuthorize("hasRole('ADMIN')")
 public class TurnoAdminController {
 

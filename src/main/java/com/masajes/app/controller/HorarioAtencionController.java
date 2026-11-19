@@ -20,7 +20,6 @@ import java.util.List;
     description = "Gestión de días y horarios de atención"
 )
 @SecurityRequirement(name = "bearerAuth")
-@CrossOrigin(origins = "*")
 public class HorarioAtencionController {
 
     @Autowired

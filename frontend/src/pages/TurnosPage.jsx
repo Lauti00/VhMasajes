@@ -1,23 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from "../context/useAuth";
 
 // COMPONENTES
-import TurnosCliente from "./TurnosCliente";
-import AdminDashboard from "./AdminDashboard";
-import GestorHorarios from "./GestorHorarios";
-import EstadisticasPanel from "./EstadisticasPanel";
+const TurnosCliente = lazy(() => import('./TurnosCliente'));
+const AdminDashboard = lazy(() => import('./AdminDashboard'));
+const GestorHorarios = lazy(() => import('./GestorHorarios'));
+const EstadisticasPanel = lazy(() => import('./EstadisticasPanel'));
+const AdminServicios = lazy(() => import('./AdminServices'));
 
 export default function TurnosPage() {
 
-    const { user, logout, token } = useAuth();
+    const { user, logout } = useAuth();
 
     const [tabActiva, setTabActiva] = useState('agenda');
-
-    const [stats, setStats] = useState({
-        ganancias: 0,
-        turnosHoy: 0,
-        totalClientes: 0
-    });
 
     // =====================================
     // DETECTAR ADMIN
@@ -26,38 +22,12 @@ export default function TurnosPage() {
     const esAdmin = user?.rol === 'ADMIN';
 
     // =====================================
-    // DEBUG
-    // =====================================
-
-    console.log("USER COMPLETO:", user);
-    console.log("ROL:", user?.rol);
-    console.log("ES ADMIN:", esAdmin);
-    console.log("TOKEN:", token);
-
-    useEffect(() => {
-
-        if (esAdmin) {
-
-            console.log("✅ ADMIN DETECTADO");
-
-            setStats({
-                ganancias: 25000,
-                turnosHoy: 5,
-                totalClientes: 120
-            });
-        }
-
-    }, [esAdmin]);
-
-    // =====================================
     // SI NO ES ADMIN
     // =====================================
 
     if (!esAdmin) {
 
-        console.log("❌ NO ES ADMIN");
-
-        return <TurnosCliente />;
+        return <Suspense fallback={<p style={{ padding: 32, textAlign: 'center' }}>Cargando turnos…</p>}><TurnosCliente /></Suspense>;
     }
 
     // =====================================
@@ -114,6 +84,8 @@ export default function TurnosPage() {
 
                     </div>
 
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <Link to="/cuenta/clave" style={{ color: '#405b48', fontWeight: 600, fontSize: 14 }}>Cambiar contraseña</Link>
                     <button
                         onClick={logout}
                         style={{
@@ -128,59 +100,9 @@ export default function TurnosPage() {
                     >
                         Cerrar Sesión
                     </button>
+                    </div>
 
                 </header>
-
-                {/* TARJETAS */}
-
-                <div
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                        gap: '20px',
-                        marginBottom: '30px'
-                    }}
-                >
-
-                    <div
-                        style={{
-                            backgroundColor: '#fff',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            borderLeft: '6px solid #0d6efd'
-                        }}
-                    >
-
-                        <span style={{ color: '#666' }}>
-                            💰 Ganancias
-                        </span>
-
-                        <h2 style={{ margin: '5px 0' }}>
-                            ${stats.ganancias.toLocaleString()}
-                        </h2>
-
-                    </div>
-
-                    <div
-                        style={{
-                            backgroundColor: '#fff',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            borderLeft: '6px solid #198754'
-                        }}
-                    >
-
-                        <span style={{ color: '#666' }}>
-                            📅 Turnos Hoy
-                        </span>
-
-                        <h2 style={{ margin: '5px 0' }}>
-                            {stats.turnosHoy}
-                        </h2>
-
-                    </div>
-
-                </div>
 
                 {/* TABS */}
 
@@ -208,6 +130,13 @@ export default function TurnosPage() {
                     </button>
 
                     <button
+                        onClick={() => setTabActiva('servicios')}
+                        style={tabStyle(tabActiva === 'servicios')}
+                    >
+                        💆 Servicios
+                    </button>
+
+                    <button
                         onClick={() => setTabActiva('stats')}
                         style={tabStyle(tabActiva === 'stats')}
                     >
@@ -220,17 +149,17 @@ export default function TurnosPage() {
 
                 <div style={{ padding: '10px 0' }}>
 
-                    {tabActiva === 'agenda' && (
-                        <AdminDashboard />
-                    )}
+                    <Suspense fallback={<p style={{ padding: 32, textAlign: 'center' }}>Cargando panel…</p>}>
+                    {tabActiva === 'agenda' && <AdminDashboard />}
 
                     {tabActiva === 'horarios' && (
                         <GestorHorarios />
                     )}
 
-                    {tabActiva === 'stats' && (
-                        <EstadisticasPanel />
-                    )}
+                    {tabActiva === 'servicios' && <AdminServicios />}
+
+                    {tabActiva === 'stats' && <EstadisticasPanel />}
+                    </Suspense>
 
                 </div>
 

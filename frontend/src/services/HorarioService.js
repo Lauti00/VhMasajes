@@ -51,7 +51,7 @@ export const horarioService = {
 
             console.log("📤 Enviando horarios:", horarios);
 
-            const response = await axios.post(
+            const response = await axios.put(
                 HORARIOS_URL,
                 horarios,
                 {
