@@ -2,6 +2,7 @@ body:has(.admin-layout) { background: #f4f6f3; color: #26382d; font-family: Inte
 body:has(.admin-layout) #root { border: 0; margin: 0; max-width: none; text-align: left; width: 100%; }
 body:has(.admin-layout) h1, body:has(.admin-layout) h2 { font-family: inherit; font-weight: 650; }
 .admin-layout { color: #2b3d32; min-height: 100vh; }
+.admin-workspace, .admin-main, .admin-layout { box-sizing: border-box; min-width: 0; }
 .admin-header { align-items: center; background: #fff; border-bottom: 1px solid #e5eae4; display: flex; justify-content: space-between; min-height: 76px; padding: 0 clamp(18px, 4vw, 54px); }
 .admin-brand { align-items: center; color: #2a4635; display: inline-flex; font-size: .91rem; gap: 10px; line-height: 1.15; text-decoration: none; }
 .admin-brand > span:last-child { display: grid; gap: 4px; letter-spacing: .04em; }
@@ -41,7 +42,7 @@ body:has(.admin-layout) h1, body:has(.admin-layout) h2 { font-family: inherit; f
   .admin-workspace { display: block; }
   .admin-sidebar { border-bottom: 1px solid #e3e9e2; border-right: 0; padding: 13px 16px; }
   .admin-sidebar-label, .admin-sidebar-note { display: none; }
-  .admin-tabs { display: flex; gap: 7px; overflow-x: auto; }
+  .admin-tabs { display: flex; gap: 7px; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; touch-action: pan-x; -webkit-overflow-scrolling: touch; }
   .admin-tab { flex: 0 0 auto; min-height: 47px; padding: 7px 11px; width: auto; }
   .admin-tab-number { display: none; }
   .admin-tab small { display: none; }

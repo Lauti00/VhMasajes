@@ -1,318 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { horarioService } from '../services/HorarioService';
+import './GestorHorarios.css';
 
-// Diccionario para mostrar el nombre lindo del día
-const nombresDias = {
-    1: 'Lunes',
-    2: 'Martes',
-    3: 'Miércoles',
-    4: 'Jueves',
-    5: 'Viernes',
-    6: 'Sábado',
-    7: 'Domingo'
-};
-
-// Plantilla por defecto si la base de datos está vacía
-const plantillaPorDefecto = Array.from({ length: 7 }, (_, i) => ({
-    diaSemana: i + 1,
-    laborable: i + 1 <= 5,
-    horaApertura: '09:00',
-    horaCierre: '18:00'
-}));
+const nombresDias = { 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado', 7: 'Domingo' };
+const plantillaPorDefecto = Array.from({ length: 7 }, (_, i) => ({ diaSemana: i + 1, laborable: i + 1 <= 5, horaApertura: '09:00', horaCierre: '18:00' }));
 
 export default function GestorHorarios() {
+  const [horarios, setHorarios] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState({ texto: '', tipo: '' });
 
-    const [horarios, setHorarios] = useState([]);
-    const [guardando, setGuardando] = useState(false);
-    const [mensaje, setMensaje] = useState("");
+  useEffect(() => {
+    let activo = true;
+    horarioService.obtenerHorarios().then(data => {
+      if (!activo) return;
+      const lista = Array.isArray(data) && data.length ? data : plantillaPorDefecto;
+      setHorarios(lista.map(h => ({ ...h, horaApertura: h.horaApertura?.substring(0, 5) || '09:00', horaCierre: h.horaCierre?.substring(0, 5) || '18:00' })));
+      setCargando(false);
+    });
+    return () => { activo = false; };
+  }, []);
 
-    useEffect(() => {
-        cargarDatos();
-    }, []);
+  const actualizarDia = (diaSemana, campo, valor) => setHorarios(actuales => actuales.map(dia => dia.diaSemana === diaSemana ? { ...dia, [campo]: valor } : dia));
 
-    const cargarDatos = async () => {
-        try {
+  const guardar = async event => {
+    event.preventDefault();
+    setGuardando(true);
+    setMensaje({ texto: '', tipo: '' });
+    try {
+      await horarioService.guardarHorarios(horarios.map(dia => ({ ...dia, horaApertura: `${dia.horaApertura}:00`, horaCierre: `${dia.horaCierre}:00` })));
+      setMensaje({ texto: 'La disponibilidad semanal quedó actualizada.', tipo: 'success' });
+    } catch {
+      setMensaje({ texto: 'No pudimos guardar los cambios. Revisá tu conexión e intentá nuevamente.', tipo: 'error' });
+    } finally { setGuardando(false); }
+  };
 
-            const data = await horarioService.obtenerHorarios();
+  if (cargando) return <div className="availability-state" role="status">Cargando disponibilidad…</div>;
 
-            console.log("📦 Respuesta horarios:", data);
-
-            // Validamos que realmente sea un array
-            if (Array.isArray(data) && data.length > 0) {
-
-                const formateados = data.map(h => ({
-                    ...h,
-                    horaApertura: h.horaApertura
-                        ? h.horaApertura.substring(0, 5)
-                        : '09:00',
-
-                    horaCierre: h.horaCierre
-                        ? h.horaCierre.substring(0, 5)
-                        : '18:00'
-                }));
-
-                setHorarios(formateados);
-
-            } else {
-
-                console.warn("⚠️ No llegaron horarios válidos. Usando plantilla por defecto.");
-
-                setHorarios(plantillaPorDefecto);
-            }
-
-        } catch (error) {
-
-            console.error("❌ Error cargando horarios:", error);
-
-            setMensaje("❌ Error cargando horarios");
-
-            // Si falla igualmente mostramos plantilla
-            setHorarios(plantillaPorDefecto);
-        }
-    };
-
-    const handleChange = (diaSemana, campo, valor) => {
-
-        setHorarios(prev =>
-            prev.map(h =>
-                h.diaSemana === diaSemana
-                    ? { ...h, [campo]: valor }
-                    : h
-            )
-        );
-    };
-
-    const guardarConfiguracion = async () => {
-
-        setGuardando(true);
-        setMensaje("");
-
-        try {
-
-            // Agregamos segundos para Java LocalTime
-            const payload = horarios.map(h => ({
-                ...h,
-                horaApertura: h.horaApertura + ":00",
-                horaCierre: h.horaCierre + ":00"
-            }));
-
-            console.log("📤 Enviando horarios:", payload);
-
-            await horarioService.guardarHorarios(payload);
-
-            setMensaje("✅ Horarios guardados correctamente");
-
-            setTimeout(() => {
-                setMensaje("");
-            }, 3000);
-
-        } catch (error) {
-
-            console.error("❌ Error guardando horarios:", error);
-
-            setMensaje("❌ Error al guardar la configuración");
-
-        } finally {
-
-            setGuardando(false);
-        }
-    };
-
-    if (horarios.length === 0) {
-        return <p>Cargando configuración... ⏳</p>;
-    }
-
-    return (
-
-        <div
-            style={{
-                backgroundColor: 'white',
-                padding: '30px',
-                borderRadius: '10px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-            }}
-        >
-
-            <h2 style={{ color: '#333', marginBottom: '5px' }}>
-                ⏱️ Horarios de Atención
-            </h2>
-
-            <p style={{ color: '#666', marginBottom: '20px' }}>
-                Configura los días y horas en los que se pueden reservar turnos.
-            </p>
-
-            {mensaje && (
-                <div
-                    style={{
-                        backgroundColor: mensaje.includes('✅')
-                            ? '#d4edda'
-                            : '#f8d7da',
-
-                        padding: '10px',
-                        borderRadius: '5px',
-                        marginBottom: '15px'
-                    }}
-                >
-                    {mensaje}
-                </div>
-            )}
-
-            <div
-                style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '15px'
-                }}
-            >
-
-                {horarios.map((dia) => (
-
-                    <div
-                        key={dia.diaSemana}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '15px',
-                            backgroundColor: '#f8f9fa',
-                            borderRadius: '8px',
-                            border: '1px solid #eee'
-                        }}
-                    >
-
-                        {/* Día + Checkbox */}
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                width: '30%'
-                            }}
-                        >
-
-                            <input
-                                type="checkbox"
-                                checked={dia.laborable}
-                                onChange={(e) =>
-                                    handleChange(
-                                        dia.diaSemana,
-                                        'laborable',
-                                        e.target.checked
-                                    )
-                                }
-                                style={{
-                                    transform: 'scale(1.5)',
-                                    marginRight: '15px',
-                                    cursor: 'pointer'
-                                }}
-                            />
-
-                            <strong
-                                style={{
-                                    fontSize: '1.1rem',
-                                    color: dia.laborable ? '#333' : '#aaa'
-                                }}
-                            >
-                                {nombresDias[dia.diaSemana]}
-                            </strong>
-
-                        </div>
-
-                        {/* Horarios */}
-                        <div
-                            style={{
-                                display: 'flex',
-                                gap: '10px',
-                                alignItems: 'center',
-                                opacity: dia.laborable ? 1 : 0.4
-                            }}
-                        >
-
-                            <label
-                                style={{
-                                    color: '#555',
-                                    fontWeight: 'bold'
-                                }}
-                            >
-                                De:
-                            </label>
-
-                            <input
-                                type="time"
-                                value={dia.horaApertura}
-                                disabled={!dia.laborable}
-                                onChange={(e) =>
-                                    handleChange(
-                                        dia.diaSemana,
-                                        'horaApertura',
-                                        e.target.value
-                                    )
-                                }
-                                style={{
-                                    padding: '8px',
-                                    borderRadius: '4px',
-                                    border: '1px solid #ccc'
-                                }}
-                            />
-
-                            <label
-                                style={{
-                                    color: '#555',
-                                    fontWeight: 'bold',
-                                    marginLeft: '10px'
-                                }}
-                            >
-                                Hasta:
-                            </label>
-
-                            <input
-                                type="time"
-                                value={dia.horaCierre}
-                                disabled={!dia.laborable}
-                                onChange={(e) =>
-                                    handleChange(
-                                        dia.diaSemana,
-                                        'horaCierre',
-                                        e.target.value
-                                    )
-                                }
-                                style={{
-                                    padding: '8px',
-                                    borderRadius: '4px',
-                                    border: '1px solid #ccc'
-                                }}
-                            />
-
-                        </div>
-
-                    </div>
-
-                ))}
-
-            </div>
-
-            <button
-                onClick={guardarConfiguracion}
-                disabled={guardando}
-                style={{
-                    marginTop: '25px',
-                    width: '100%',
-                    backgroundColor: '#0d6efd',
-                    color: 'white',
-                    border: 'none',
-                    padding: '15px',
-                    borderRadius: '5px',
-                    fontSize: '1.1rem',
-                    fontWeight: 'bold',
-                    cursor: guardando ? 'not-allowed' : 'pointer'
-                }}
-            >
-
-                {guardando
-                    ? 'Guardando...'
-                    : '💾 Guardar Configuración Semanal'}
-
-            </button>
-
-        </div>
-    );
+  return <section className="availability-page" aria-labelledby="availability-title">
+    <header className="availability-heading">
+      <div><p className="availability-kicker">CONFIGURACIÓN SEMANAL</p><h1 id="availability-title">Disponibilidad</h1><p>Definí qué días atendés y en qué horario. Podés ajustar cada jornada según tu semana.</p></div>
+      <span className="availability-heading-mark" aria-hidden="true">◷</span>
+    </header>
+    {mensaje.texto && <div className={`availability-message ${mensaje.tipo}`} role={mensaje.tipo === 'error' ? 'alert' : 'status'}>{mensaje.texto}</div>}
+    <form onSubmit={guardar}>
+      <div className="availability-list">
+        {horarios.map(dia => <article className={`availability-day ${dia.laborable ? '' : 'is-off'}`} key={dia.diaSemana}>
+          <div className="availability-day-heading">
+            <div className="availability-day-name"><span className="availability-day-dot" aria-hidden="true"/><div><h2>{nombresDias[dia.diaSemana]}</h2><p>{dia.laborable ? 'Día de atención' : 'Día sin atención'}</p></div></div>
+            <label className="availability-toggle"><input type="checkbox" checked={dia.laborable} onChange={event => actualizarDia(dia.diaSemana, 'laborable', event.target.checked)} /><span className="availability-toggle-track" aria-hidden="true"/><span className="availability-toggle-label">{dia.laborable ? 'Disponible' : 'No disponible'}</span></label>
+          </div>
+          {dia.laborable && <div className="availability-times">
+            <label>Desde<input type="time" value={dia.horaApertura} onChange={event => actualizarDia(dia.diaSemana, 'horaApertura', event.target.value)} required /></label>
+            <span className="availability-time-separator" aria-hidden="true">a</span>
+            <label>Hasta<input type="time" value={dia.horaCierre} onChange={event => actualizarDia(dia.diaSemana, 'horaCierre', event.target.value)} required /></label>
+          </div>}
+        </article>)}
+      </div>
+      <div className="availability-footer"><p>Los pacientes solo podrán reservar dentro de estos horarios.</p><button className="availability-save" type="submit" disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar disponibilidad'}</button></div>
+    </form>
+  </section>;
 }
